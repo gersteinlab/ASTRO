@@ -1,0 +1,13 @@
+{
+    "R1": "R1.fq",
+    "R2": "R2.fq",
+    "barcode_file": "spatial_barcodes.txt",
+    "PrimerStructure1": "AAGCAGTGGTATCAACGCAGAGTGAATGGG_b_A{10}N{150}",
+    "StructureUMI": "CAAGCGTTGGCTTCTCGCATCT_10",
+    "StructureBarcode": "20_ATCCACGTGCTTGAGAGGCCAGAGCATTCG:ATCCACGTGCTTGAGAGGCCAGAGCATTCG...GTGGCCGATGTTTCGCATCGGCGTACGACT",
+    "threadnum": 16,
+    "steps": 7,
+    "outputfolder": "output/",
+    "gtffile": "hsa.no_piRNA.gtf",
+    "starref": "StarIndex/"
+}

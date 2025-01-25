@@ -1,0 +1,24 @@
+--outSAMattributes NH   HI   AS   nM   NM
+--genomeLoad NoSharedMemory
+--limitOutSAMoneReadBytes 200000000
+--outFilterMultimapNmax -1
+--outFilterMultimapScoreRange 0
+--readMatesLengthsIn NotEqual
+--limitBAMsortRAM 0
+--outMultimapperOrder Random
+--outSAMtype BAM SortedByCoordinate
+--outSAMunmapped Within
+--outSAMorder Paired
+--outSAMprimaryFlag AllBestScore
+--outSAMmultNmax -1
+--outFilterType Normal
+--outFilterScoreMinOverLread 0
+--alignSJDBoverhangMin 30
+--outFilterMatchNmin 15
+--outFilterMatchNminOverLread 0
+--outFilterMismatchNoverLmax 0.1
+--outFilterMismatchNoverReadLmax 0.15
+--alignIntronMin 20
+--alignIntronMax 1000000
+--alignEndsType Local
+--twopassMode Basic
