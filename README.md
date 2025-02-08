@@ -158,6 +158,18 @@ The ASTRO script accepts parameters via the command line or a JSON file. The mai
       <td>2</td>
       <td>Filters based on log2 variance differences; default is log2 &gt; 2 (4x difference) for removal</td>
     </tr>
+    <tr>
+      <td>workflow</td>
+      <td>No</td>
+      <td></td>
+      <td>new</td>
+      <td>
+      Specifies which pipeline to execute. If set to
+      <code>"old"</code>, the older workflow will run.
+      If not specified or left as default, it will run the latest
+      workflow.
+      </td>
+    </tr>
   </tbody>
 </table>
 
