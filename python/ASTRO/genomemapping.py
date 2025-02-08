@@ -1,0 +1,479 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
+import os
+import sys
+import subprocess
+import multiprocessing as mp
+import tempfile
+
+def star_align(genome_dir, read_files_in, out_prefix, run_thread_n=16, gtf_file=None, extra_params=None):
+
+    if extra_params is None:
+        extra_params = []
+    if isinstance(extra_params, str):
+        extra_params = extra_params.split()
+
+    gtf_part = []
+    if gtf_file is not None and gtf_file != "NA":
+        gtf_part = ["--sjdbGTFfile", gtf_file]
+
+    cmd = [
+        "STAR",
+        "--genomeDir", genome_dir,
+        "--readFilesIn", read_files_in,
+        "--outFileNamePrefix", out_prefix,
+        "--runThreadN", str(run_thread_n),
+    ] + gtf_part + extra_params
+
+    subprocess.run(cmd, check=True)
+
+
+def dedup_bam_samtools_markdup_2step(input_bam, output_bam, threads=1, log_function=print):
+    """
+    通过“两步法”执行 markdup:
+    1) samtools markdup => 直接输出 BAM（而非 SAM）
+    2) 将该 BAM 转成文本 SAM，Python 里逐行解析/改写 QNAME/过滤 => 最后再转回 BAM
+    """
+
+    # 第1步: samtools markdup => 输出 BAM
+    markdup_bam = output_bam + ".markdup.bam"
+    regex = r'.+\|:_:\|(.+)$'
+    markdup_cmd = [
+        "samtools", "markdup",
+        "-r",
+        "--barcode-rgx", regex,
+        "-@", str(threads),
+        "-O", "BAM",         # 直接输出 BAM
+        input_bam,
+        markdup_bam
+    ]
+    log_function(f"[dedup_bam_2step] Step1 => {' '.join(markdup_cmd)}")
+    ret = subprocess.run(markdup_cmd)
+    if ret.returncode != 0:
+        raise RuntimeError(f"[Error] samtools markdup failed on {input_bam}")
+
+    # 第2步：把 markdup 后的 BAM => SAM => Python解析 => 输出 final.bam
+    # ----------------------------------------------------------------
+    # 2.1) 先转成 SAM
+    temp_sam = output_bam + ".temp.sam"
+    view_cmd_1 = ["samtools", "view", "-h", markdup_bam]
+    log_function(f"[dedup_bam_2step] Step2 => {' '.join(view_cmd_1)}")
+
+    with open(temp_sam, "w") as out_sam:
+        ret2 = subprocess.run(view_cmd_1, stdout=out_sam)
+    if ret2.returncode != 0:
+        raise RuntimeError("[Error] samtools view -h (reading markdup_bam) failed")
+
+    # 2.2) 逐行读 SAM，过滤掉 flag=1024 和 flag=4 的读，并改写 QNAME
+    final_sam = output_bam + ".final.sam"
+    dedup_dict = {}
+    rename_dict = {}
+    global_index = 0
+
+    with open(temp_sam, "r") as f_in, open(final_sam, "w") as f_out:
+        for line in f_in:
+            line = line.rstrip("\n")
+            # 头行直接输出
+            if line.startswith('@'):
+                f_out.write(line + "\n")
+                continue
+
+            fields = line.split('\t')
+            flag = int(fields[1])
+            qname = fields[0]
+
+            # 如果有 markdup 标记 (flag & 1024 != 0)，则丢弃
+            if (flag & 1024) != 0:
+                # 记录到 dedup_dict 里，仅作参考
+                splitted = qname.split("|:_:|", 1)
+                old_readname = splitted[0] if splitted else qname
+                dedup_dict[old_readname] = True
+                continue
+
+            # unmapped 也不写
+            if (flag & 4) != 0:
+                continue
+
+            # 拆分 oldNamePart / posPart
+            splitted = qname.split("|:_:|", 1)
+            if len(splitted) == 2:
+                oldNamePart, posPart = splitted
+            else:
+                oldNamePart, posPart = ("","")
+
+            # 如果 oldNamePart 在 dedup_dict，就跳过
+            if oldNamePart in dedup_dict:
+                continue
+
+            # 找到 AS:i: 以及 OQ:Z: 位置
+            seq = fields[9]
+            readlen = len(seq)
+            ASv = -999999
+            oq_idx = -1
+            for i in range(11, len(fields)):
+                if fields[i].startswith("AS:i:"):
+                    ASv = int(fields[i][5:])
+                elif fields[i].startswith("OQ:Z:"):
+                    oq_idx = i
+
+            # 把 OQ tag 删掉
+            if oq_idx != -1:
+                fields.pop(oq_idx)
+
+            # 如果这是首次看到这个 oldNamePart，则给它一个新的编号
+            if oldNamePart not in rename_dict:
+                global_index += 1
+                rename_dict[oldNamePart] = f"{global_index}_{posPart}"
+
+            thename = rename_dict[oldNamePart]
+            newQname = f"{thename}:{ASv}:{readlen}"
+            fields[0] = newQname
+
+            # 写到 final SAM
+            f_out.write("\t".join(fields) + "\n")
+
+    # 2.3) 把 final_sam => output_bam
+    view_cmd_2 = ["samtools", "view", "-b", "-o", output_bam, final_sam]
+    log_function(f"[dedup_bam_2step] Step3 => {' '.join(view_cmd_2)}")
+    ret3 = subprocess.run(view_cmd_2)
+    if ret3.returncode != 0:
+        raise RuntimeError("[Error] samtools view final_sam => output_bam failed")
+
+    # 删除中间文件
+    for tmpf in [markdup_bam, temp_sam, final_sam]:
+        if os.path.exists(tmpf):
+            os.remove(tmpf)
+
+    log_function(f"[dedup_bam_2step] Done => {output_bam}")
+
+
+#
+# 如果需要，可以把旧的 dedup_bam_samtools_markdup() 注释掉，以免混淆
+#
+# def dedup_bam_samtools_markdup(...):
+#     pass
+
+
+def dedup_chunk(chunk_index, lines, temp_dir):    
+    """
+    用于 dedup_bam_own() 里 parallel_dedup 时对 chunk 做处理
+    """
+    global_index = 0
+    prev_qname   = ""
+    records      = []
+    best_AS      = -999999
+    best_readlen = 0
+    best_OQ      = ""
+
+    def flush_group(output):
+        nonlocal global_index, prev_qname, records, best_AS, best_readlen, best_OQ
+        if not prev_qname:
+            return
+
+        global_index += 1
+        new_prefix = f"{global_index}_{prev_qname}:{best_AS}:{best_readlen}"
+
+        for rec_line in records:
+            fds = rec_line.split('\t')
+            oq_val = ""
+            oq_tag_idx = -1
+            for i in range(11, len(fds)):
+                if fds[i].startswith("OQ:Z:"):
+                    oq_val = fds[i][5:]
+                    oq_tag_idx = i
+                    break
+            if oq_val == best_OQ:
+                # rename QNAME
+                fds[0] = new_prefix
+                if oq_tag_idx != -1:
+                    fds.pop(oq_tag_idx)
+                output.write("\t".join(fds) + "\n")
+
+        # reset
+        records.clear()
+        best_AS      = -999999
+        best_readlen = 0
+        best_OQ      = ""
+        prev_qname   = ""
+
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, dir=temp_dir, prefix=f"chunk_{chunk_index}_", suffix=".txt") as fw:
+        for line in lines:
+            line = line.rstrip("\n")
+            if line.startswith('@'):
+                fw.write(line + '\n')
+                continue
+
+            fds = line.split('\t')
+            qname = fds[0]
+
+            if qname != prev_qname:
+                flush_group(fw)
+                prev_qname = qname
+                records = []
+
+            records.append(line)
+
+            # parse AS/readlen
+            seq = fds[9]
+            readlen = len(seq)
+            ASv = -999999
+            for tag in fds[11:]:
+                if tag.startswith("AS:i:"):
+                    ASv = int(tag[5:])
+
+            if ASv > best_AS:
+                best_AS      = ASv
+                best_readlen = readlen
+                OQv = ""
+                for tag in fds[11:]:
+                    if tag.startswith("OQ:Z:"):
+                        OQv = tag[5:]
+                        break
+                best_OQ = OQv
+        flush_group(fw)
+    return fw.name
+
+
+def parallel_dedup(cmd_collated_view, cmd_final_write, nproc=4, chunk_size=100000, temp_dir="/tmp"):
+
+    pool = mp.Pool(processes=nproc)
+    proc_in2 = subprocess.Popen(cmd_collated_view, stdout=subprocess.PIPE, text=True)
+
+    async_results = []
+    temp_files = []
+
+    lines_buffer = []
+    chunk_index = 0
+
+    def flush_buffer_to_pool(buf, idx):
+        return pool.apply_async(dedup_chunk, (idx, buf, temp_dir))
+
+    prev_qname = ''
+    for line in proc_in2.stdout:
+        line = line.rstrip("\n")
+
+        if len(lines_buffer) >= chunk_size:
+            qname = line.split('\t')[0]
+            if prev_qname != '' and prev_qname != qname:
+                res = flush_buffer_to_pool(lines_buffer, chunk_index)
+                async_results.append(res)
+                lines_buffer = []
+                chunk_index += 1
+                prev_qname = ''
+            elif prev_qname == '':
+                prev_qname = qname
+            lines_buffer.append(line)
+        else:
+            lines_buffer.append(line)
+
+    if lines_buffer:
+        res = flush_buffer_to_pool(lines_buffer, chunk_index)
+        async_results.append(res)
+
+    proc_in2.stdout.close()
+    ret_view2 = proc_in2.wait()
+    if ret_view2 != 0:
+        raise RuntimeError("samtools view (collated_view) failed.")
+
+    pool.close()
+    for r in async_results:
+        tf = r.get()
+        temp_files.append(tf)
+    pool.join()
+
+    proc_out2 = subprocess.Popen(cmd_final_write, stdin=subprocess.PIPE, text=True)
+    for tf in temp_files:
+        with open(tf, 'r') as f:
+            for line in f:
+                proc_out2.stdin.write(line)
+    proc_out2.stdin.close()
+    ret_write2 = proc_out2.wait()
+    if ret_write2 != 0:
+        raise RuntimeError("samtools view (final_write) failed.")
+
+    for tf in temp_files:
+        try:
+            os.remove(tf)
+        except Exception as e:
+            sys.stderr.write(f"Warning: Could not remove temp file {tf}: {e}\n")
+    print("[INFO] parallel_sam_view done.")
+
+
+def dedup_bam_own(input_bam, output_bam, threads=1, temp_dir = '/tmp', chunk_size=100000, log_function=print):
+    """
+    原先的 dedup_bam_own
+    """
+    filtered_bam = f"{input_bam}.mappedOnly.bam"
+    cmd_filter = [
+        "samtools", "view",
+        "-b", "-F", "4",
+        input_bam,
+        "-o", filtered_bam
+    ]
+    log_function(f"[v2] Step0: Filtering unmapped => {' '.join(cmd_filter)}")
+    ret = subprocess.run(cmd_filter)
+    if ret.returncode != 0:
+        raise RuntimeError(f"[Error] samtools view -F 4 failed on {input_bam}")
+
+    temp_renamed_bam = f"{output_bam}.renamed.bam"
+    cmd_view  = ["samtools", "view", "-h", filtered_bam]
+    cmd_write = ["samtools", "view", "-b", '-@', str(int(threads)-1), "-o", temp_renamed_bam, "-"]
+
+    log_function("[v2] Step1: Renaming QNAME => bc+UMI, storing old in OQ:Z:")
+    with subprocess.Popen(cmd_view, stdout=subprocess.PIPE, text=True) as proc_in, \
+         subprocess.Popen(cmd_write, stdin=subprocess.PIPE, text=True) as proc_out:
+
+        for line in proc_in.stdout:
+            line = line.rstrip("\n")
+            if line.startswith('@'):
+                proc_out.stdin.write(line + "\n")
+                continue
+
+            fields = line.split('\t')
+            old_qname = fields[0]
+
+            if "|:_:|" in old_qname:
+                splitted = old_qname.split("|:_:|", 1)
+                oldName  = splitted[0]
+                bcumi    = splitted[1]
+                fields[0] = bcumi
+                fields.append(f"OQ:Z:{oldName}")
+
+            proc_out.stdin.write("\t".join(fields) + "\n")
+
+        proc_out.stdin.close()
+        ret_write = proc_out.wait()
+    ret_view = proc_in.wait()
+    if ret_view != 0 or ret_write != 0:
+        raise RuntimeError("[v2] Step1 rename QNAME step failed")
+
+    temp_collated_bam = f"{output_bam}.collated.bam"
+    cmd_collate = [
+        "samtools", "collate",
+        "-@", str(threads),
+        "-o", temp_collated_bam,
+        temp_renamed_bam
+    ]
+    log_function(f"[v2] Step2: Collate => {' '.join(cmd_collate)}")
+    ret_collate = subprocess.run(cmd_collate)
+    if ret_collate.returncode != 0:
+        raise RuntimeError("[v2] samtools collate failed")
+
+    log_function("[v2] Step3: flush group => keep best AS => final rename => out.bam")
+
+    cmd_collated_view = ["samtools", "view", "-h", temp_collated_bam]
+    cmd_final_write   = ["samtools", "view", "-b", "-o", output_bam, "-"]
+    
+    parallel_dedup(cmd_collated_view, cmd_final_write, nproc=threads, chunk_size=chunk_size, temp_dir=temp_dir)
+
+    os.remove(filtered_bam)
+    os.remove(temp_renamed_bam)
+    os.remove(temp_collated_bam)
+
+    log_function(f"[v2] Done => {output_bam}")
+
+
+def collate_bam(input_bam, output_bam, threads=1, log_function=print):
+    log_function(f"[samtools_collate] Collating {input_bam} => {output_bam} (threads={threads})")
+    result = subprocess.run([
+        "samtools", "collate",
+        "-@", str(threads),
+        "-o", output_bam,
+        input_bam
+    ])
+    if result.returncode != 0:
+        raise RuntimeError("[samtools_collate] samtools collate failed.")
+    log_function("[samtools_collate] Done.")
+
+
+def genomemapping(starref, gtffile, threadnum, options, outputfolder, STARparamfile='NA'):
+    """
+    主流程：
+      1) 调用STAR对 combine.fq 做比对 => 得到 Aligned.sortedByCoord.out.bam
+      2) 根据 options 判断是否用两步法 markdup 或用 dedup_bam_own() 做去重
+      3) 写日志并返回最后得到的 'tempfiltered.bam'
+    """
+
+    log_file = os.path.join(outputfolder, "genomemapping.log")
+    os.makedirs(outputfolder, exist_ok=True)
+    with open(log_file, 'a') as f:
+        f.write("[genomemapping] start...\n")
+
+    star_output_prefix = os.path.join(outputfolder, "STAR/temp")
+    star_sorted_bam    = star_output_prefix + "Aligned.sortedByCoord.out.bam"
+    
+    # 如果指定了参考（starref），就跑 STAR
+    if starref != "NA":
+        if STARparamfile == "NA":
+            extra_star_params = [
+                "--outSAMattributes", "NH", "HI", "AS", "nM", "NM",
+                "--genomeLoad", "NoSharedMemory",
+                "--limitOutSAMoneReadBytes", "200000000",
+                "--outFilterMultimapNmax", "-1",
+                "--outFilterMultimapScoreRange", "0",
+                "--readMatesLengthsIn", "NotEqual",
+                "--limitBAMsortRAM", "0",
+                "--outMultimapperOrder", "Random",
+                "--outSAMtype", "BAM", "SortedByCoordinate",
+                "--outSAMunmapped", "Within",
+                "--outSAMorder", "Paired",
+                "--outSAMprimaryFlag", "AllBestScore",
+                "--outSAMmultNmax", "-1",
+                "--outFilterType", "Normal",
+                "--outFilterScoreMinOverLread", "0",
+                "--alignSJDBoverhangMin", "30",
+                "--outFilterMatchNmin", "15",
+                "--outFilterMatchNminOverLread", "0",
+                "--outFilterMismatchNoverLmax", "0.1",
+                "--outFilterMismatchNoverReadLmax", "0.15",
+                "--alignIntronMin", "20",
+                "--alignIntronMax", "1000000",
+                "--alignEndsType", "Local"
+            ]
+        else:
+            with open(STARparamfile, 'r') as sf:
+                lines = [line.strip() for line in sf if line.strip()]
+            extra_star_params = []
+            for line in lines:
+                extra_star_params.extend(line.split())
+
+        # 执行 STAR 比对
+        star_align(
+            genome_dir=starref,
+            read_files_in=os.path.join(outputfolder, "combine.fq"), 
+            out_prefix=star_output_prefix,
+            run_thread_n=int(threadnum),
+            gtf_file=gtffile,
+            extra_params=extra_star_params
+        )
+
+    # 下游输出的 bam
+    filtered_bam = os.path.join(outputfolder, "STAR/tempfiltered.bam")
+
+    def my_logger(msg):
+        with open(log_file, 'a') as ff:
+            ff.write(msg + "\n")
+
+    # 如果包含 "M" 选项 => 用两步法 dedup
+    if "M" in options:
+        my_logger("[genomemapping] Using two-step markdup => dedup_bam_samtools_markdup_2step()")
+        dedup_bam_samtools_markdup_2step(
+            input_bam = star_sorted_bam,
+            output_bam= filtered_bam,
+            threads   = int(threadnum),
+            log_function=my_logger
+        )
+    else:
+        my_logger("[genomemapping] Using alignment performance => dedup_bam_own()")
+        temp_dir = os.path.join(outputfolder, "temps/")
+        dedup_bam_own(
+            input_bam = star_sorted_bam,
+            output_bam= filtered_bam,
+            threads   = int(threadnum),
+            temp_dir  = temp_dir,
+            log_function=my_logger
+        )
+
+    my_logger(f"[genomemapping] Done. final => {filtered_bam}")
+    return filtered_bam
