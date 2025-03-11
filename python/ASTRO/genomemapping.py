@@ -30,13 +30,6 @@ def star_align(genome_dir, read_files_in, out_prefix, run_thread_n=16, gtf_file=
 
 
 def dedup_bam_samtools_markdup_2step(input_bam, output_bam, threads=1, log_function=print):
-    """
-    通过“两步法”执行 markdup:
-    1) samtools markdup => 直接输出 BAM（而非 SAM）
-    2) 将该 BAM 转成文本 SAM，Python 里逐行解析/改写 QNAME/过滤 => 最后再转回 BAM
-    """
-
-    # 第1步: samtools markdup => 输出 BAM
     markdup_bam = output_bam + ".markdup.bam"
     regex = r'.+\|:_:\|(.+)$'
     markdup_cmd = [
@@ -44,7 +37,7 @@ def dedup_bam_samtools_markdup_2step(input_bam, output_bam, threads=1, log_funct
         "-r",
         "--barcode-rgx", regex,
         "-@", str(threads),
-        "-O", "BAM",         # 直接输出 BAM
+        "-O", "BAM",         
         input_bam,
         markdup_bam
     ]
@@ -53,9 +46,6 @@ def dedup_bam_samtools_markdup_2step(input_bam, output_bam, threads=1, log_funct
     if ret.returncode != 0:
         raise RuntimeError(f"[Error] samtools markdup failed on {input_bam}")
 
-    # 第2步：把 markdup 后的 BAM => SAM => Python解析 => 输出 final.bam
-    # ----------------------------------------------------------------
-    # 2.1) 先转成 SAM
     temp_sam = output_bam + ".temp.sam"
     view_cmd_1 = ["samtools", "view", "-h", markdup_bam]
     log_function(f"[dedup_bam_2step] Step2 => {' '.join(view_cmd_1)}")
@@ -65,7 +55,6 @@ def dedup_bam_samtools_markdup_2step(input_bam, output_bam, threads=1, log_funct
     if ret2.returncode != 0:
         raise RuntimeError("[Error] samtools view -h (reading markdup_bam) failed")
 
-    # 2.2) 逐行读 SAM，过滤掉 flag=1024 和 flag=4 的读，并改写 QNAME
     final_sam = output_bam + ".final.sam"
     dedup_dict = {}
     rename_dict = {}
@@ -74,7 +63,6 @@ def dedup_bam_samtools_markdup_2step(input_bam, output_bam, threads=1, log_funct
     with open(temp_sam, "r") as f_in, open(final_sam, "w") as f_out:
         for line in f_in:
             line = line.rstrip("\n")
-            # 头行直接输出
             if line.startswith('@'):
                 f_out.write(line + "\n")
                 continue
@@ -83,30 +71,24 @@ def dedup_bam_samtools_markdup_2step(input_bam, output_bam, threads=1, log_funct
             flag = int(fields[1])
             qname = fields[0]
 
-            # 如果有 markdup 标记 (flag & 1024 != 0)，则丢弃
             if (flag & 1024) != 0:
-                # 记录到 dedup_dict 里，仅作参考
                 splitted = qname.split("|:_:|", 1)
                 old_readname = splitted[0] if splitted else qname
                 dedup_dict[old_readname] = True
                 continue
 
-            # unmapped 也不写
             if (flag & 4) != 0:
                 continue
 
-            # 拆分 oldNamePart / posPart
             splitted = qname.split("|:_:|", 1)
             if len(splitted) == 2:
                 oldNamePart, posPart = splitted
             else:
                 oldNamePart, posPart = ("","")
 
-            # 如果 oldNamePart 在 dedup_dict，就跳过
             if oldNamePart in dedup_dict:
                 continue
 
-            # 找到 AS:i: 以及 OQ:Z: 位置
             seq = fields[9]
             readlen = len(seq)
             ASv = -999999
@@ -117,11 +99,9 @@ def dedup_bam_samtools_markdup_2step(input_bam, output_bam, threads=1, log_funct
                 elif fields[i].startswith("OQ:Z:"):
                     oq_idx = i
 
-            # 把 OQ tag 删掉
             if oq_idx != -1:
                 fields.pop(oq_idx)
 
-            # 如果这是首次看到这个 oldNamePart，则给它一个新的编号
             if oldNamePart not in rename_dict:
                 global_index += 1
                 rename_dict[oldNamePart] = f"{global_index}_{posPart}"
@@ -130,35 +110,21 @@ def dedup_bam_samtools_markdup_2step(input_bam, output_bam, threads=1, log_funct
             newQname = f"{thename}:{ASv}:{readlen}"
             fields[0] = newQname
 
-            # 写到 final SAM
             f_out.write("\t".join(fields) + "\n")
 
-    # 2.3) 把 final_sam => output_bam
     view_cmd_2 = ["samtools", "view", "-b", "-o", output_bam, final_sam]
     log_function(f"[dedup_bam_2step] Step3 => {' '.join(view_cmd_2)}")
     ret3 = subprocess.run(view_cmd_2)
     if ret3.returncode != 0:
         raise RuntimeError("[Error] samtools view final_sam => output_bam failed")
 
-    # 删除中间文件
     for tmpf in [markdup_bam, temp_sam, final_sam]:
         if os.path.exists(tmpf):
             os.remove(tmpf)
 
     log_function(f"[dedup_bam_2step] Done => {output_bam}")
 
-
-#
-# 如果需要，可以把旧的 dedup_bam_samtools_markdup() 注释掉，以免混淆
-#
-# def dedup_bam_samtools_markdup(...):
-#     pass
-
-
 def dedup_chunk(chunk_index, lines, temp_dir):    
-    """
-    用于 dedup_bam_own() 里 parallel_dedup 时对 chunk 做处理
-    """
     global_index = 0
     prev_qname   = ""
     records      = []
@@ -190,7 +156,6 @@ def dedup_chunk(chunk_index, lines, temp_dir):
                     fds.pop(oq_tag_idx)
                 output.write("\t".join(fds) + "\n")
 
-        # reset
         records.clear()
         best_AS      = -999999
         best_readlen = 0
@@ -301,9 +266,6 @@ def parallel_dedup(cmd_collated_view, cmd_final_write, nproc=4, chunk_size=10000
 
 
 def dedup_bam_own(input_bam, output_bam, threads=1, temp_dir = '/tmp', chunk_size=100000, log_function=print):
-    """
-    原先的 dedup_bam_own
-    """
     filtered_bam = f"{input_bam}.mappedOnly.bam"
     cmd_filter = [
         "samtools", "view",
@@ -373,7 +335,6 @@ def dedup_bam_own(input_bam, output_bam, threads=1, temp_dir = '/tmp', chunk_siz
 
     log_function(f"[v2] Done => {output_bam}")
 
-
 def collate_bam(input_bam, output_bam, threads=1, log_function=print):
     log_function(f"[samtools_collate] Collating {input_bam} => {output_bam} (threads={threads})")
     result = subprocess.run([
@@ -388,13 +349,6 @@ def collate_bam(input_bam, output_bam, threads=1, log_function=print):
 
 
 def genomemapping(starref, gtffile, threadnum, options, outputfolder, STARparamfile='NA'):
-    """
-    主流程：
-      1) 调用STAR对 combine.fq 做比对 => 得到 Aligned.sortedByCoord.out.bam
-      2) 根据 options 判断是否用两步法 markdup 或用 dedup_bam_own() 做去重
-      3) 写日志并返回最后得到的 'tempfiltered.bam'
-    """
-
     log_file = os.path.join(outputfolder, "genomemapping.log")
     os.makedirs(outputfolder, exist_ok=True)
     with open(log_file, 'a') as f:
@@ -402,8 +356,7 @@ def genomemapping(starref, gtffile, threadnum, options, outputfolder, STARparamf
 
     star_output_prefix = os.path.join(outputfolder, "STAR/temp")
     star_sorted_bam    = star_output_prefix + "Aligned.sortedByCoord.out.bam"
-    
-    # 如果指定了参考（starref），就跑 STAR
+
     if starref != "NA":
         if STARparamfile == "NA":
             extra_star_params = [
@@ -438,7 +391,6 @@ def genomemapping(starref, gtffile, threadnum, options, outputfolder, STARparamf
             for line in lines:
                 extra_star_params.extend(line.split())
 
-        # 执行 STAR 比对
         star_align(
             genome_dir=starref,
             read_files_in=os.path.join(outputfolder, "combine.fq"), 
@@ -448,14 +400,12 @@ def genomemapping(starref, gtffile, threadnum, options, outputfolder, STARparamf
             extra_params=extra_star_params
         )
 
-    # 下游输出的 bam
     filtered_bam = os.path.join(outputfolder, "STAR/tempfiltered.bam")
 
     def my_logger(msg):
         with open(log_file, 'a') as ff:
             ff.write(msg + "\n")
 
-    # 如果包含 "M" 选项 => 用两步法 dedup
     if "M" in options:
         my_logger("[genomemapping] Using two-step markdup => dedup_bam_samtools_markdup_2step()")
         dedup_bam_samtools_markdup_2step(
