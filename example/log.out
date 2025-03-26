@@ -1,0 +1,444 @@
+This is cutadapt 2.8 with Python 3.8.10
+Command line parameters: -e 0.25 -a A{10}N{150} --times 4 -g AAGCAGTGGTATCAACGCAGAGTGAATGGG -j 1 -o test/temps/cleanr1fq1.fq -p test/temps/cleanr1fq2.fq example.R1.fastq.gz example.R2.fastq.gz
+Processing reads on 1 core in paired-end mode ...
+Finished in 2.13 s (85 us/read; 0.70 M reads/minute).
+
+=== Summary ===
+
+Total read pairs processed:             25,000
+  Read 1 with adapter:                  24,995 (100.0%)
+  Read 2 with adapter:                       0 (0.0%)
+Pairs written (passing filters):        25,000 (100.0%)
+
+Total basepairs processed:     7,500,000 bp
+  Read 1:     3,750,000 bp
+  Read 2:     3,750,000 bp
+Total written (filtered):      5,596,790 bp (74.6%)
+  Read 1:     1,846,790 bp
+  Read 2:     3,750,000 bp
+
+=== First read: Adapter 1 ===
+
+Sequence: AAAAAAAAAANNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN; Type: regular 3'; Length: 160; Trimmed: 16024 times; Reverse-complemented: 0 times
+
+No. of allowed errors:
+0-3 bp: 0; 4-7 bp: 1; 8-10 bp: 2
+
+Bases preceding removed adapters:
+  A: 0.0%
+  C: 33.8%
+  G: 36.3%
+  T: 29.8%
+  none/other: 0.0%
+
+Overview of removed sequences
+length	count	expect	max.err	error counts
+3	114	390.6	0	114
+4	365	97.7	1	15 350
+5	94	24.4	1	3 91
+6	33	6.1	1	2 31
+7	16	1.5	1	3 13
+8	46	0.4	2	6 0 40
+9	17	0.1	2	2 0 15
+10	45	0.0	2	41 1 3
+11	68	0.0	2	57 2 9
+12	87	0.0	3	71 8 8
+13	83	0.0	3	47 21 15
+14	104	0.0	3	67 18 19
+15	98	0.0	3	60 14 24
+16	101	0.0	4	44 21 36
+17	93	0.0	4	47 17 29
+18	99	0.0	4	47 25 27
+19	104	0.0	4	50 18 36
+20	154	0.0	5	116 11 27
+21	173	0.0	5	139 20 14
+22	176	0.0	5	119 31 26
+23	157	0.0	5	84 47 26
+24	160	0.0	6	55 44 61
+25	122	0.0	6	52 25 45
+26	101	0.0	6	34 17 50
+27	91	0.0	6	40 20 31
+28	88	0.0	7	44 16 28
+29	91	0.0	7	46 21 24
+30	80	0.0	7	51 16 13
+31	84	0.0	7	43 9 32
+32	78	0.0	8	33 21 24
+33	64	0.0	8	32 5 27
+34	83	0.0	8	40 15 28
+35	75	0.0	8	37 13 25
+36	78	0.0	9	41 10 27
+37	78	0.0	9	38 13 27
+38	82	0.0	9	42 11 29
+39	72	0.0	9	34 13 25
+40	68	0.0	10	36 10 22
+41	98	0.0	10	37 21 40
+42	89	0.0	10	39 15 35
+43	83	0.0	10	34 15 34
+44	86	0.0	11	56 8 22
+45	150	0.0	11	118 9 23
+46	179	0.0	11	140 13 26
+47	167	0.0	11	114 27 26
+48	180	0.0	12	98 44 38
+49	166	0.0	12	88 28 50
+50	165	0.0	12	70 29 66
+51	158	0.0	12	75 24 59
+52	131	0.0	13	48 29 54
+53	133	0.0	13	75 20 38
+54	96	0.0	13	48 15 33
+55	126	0.0	13	69 17 40
+56	102	0.0	14	53 16 33
+57	111	0.0	14	59 21 31
+58	105	0.0	14	57 19 29
+59	115	0.0	14	67 19 29
+60	118	0.0	15	54 26 38
+61	109	0.0	15	60 19 30
+62	138	0.0	15	88 22 28
+63	135	0.0	15	92 15 28
+64	150	0.0	16	76 27 47
+65	145	0.0	16	78 21 46
+66	128	0.0	16	65 23 40
+67	160	0.0	16	83 22 55
+68	120	0.0	17	68 15 37
+69	133	0.0	17	75 19 39
+70	111	0.0	17	61 19 31
+71	127	0.0	17	71 21 35
+72	118	0.0	18	58 23 37
+73	120	0.0	18	67 23 30
+74	92	0.0	18	52 12 28
+75	115	0.0	18	56 17 42
+76	163	0.0	19	84 21 58
+77	130	0.0	19	78 11 41
+78	98	0.0	19	45 15 38
+79	157	0.0	19	85 26 46
+80	152	0.0	20	78 21 53
+81	126	0.0	20	65 21 40
+82	130	0.0	20	69 26 35
+83	151	0.0	20	76 19 56
+84	121	0.0	21	58 22 41
+85	133	0.0	21	68 25 40
+86	147	0.0	21	94 15 38
+87	151	0.0	21	97 23 31
+88	141	0.0	22	81 25 35
+89	152	0.0	22	88 25 39
+90	164	0.0	22	84 25 55
+91	139	0.0	22	64 24 51
+92	104	0.0	23	48 18 38
+93	152	0.0	23	74 31 47
+94	139	0.0	23	65 20 54
+95	129	0.0	23	74 14 41
+96	138	0.0	24	90 18 30
+97	190	0.0	24	117 28 45
+98	191	0.0	24	122 28 41
+99	183	0.0	24	107 34 42
+100	110	0.0	25	46 22 42
+101	126	0.0	25	48 14 64
+102	93	0.0	25	30 23 40
+103	109	0.0	25	58 12 39
+104	73	0.0	26	30 16 27
+105	92	0.0	26	46 15 31
+106	80	0.0	26	34 11 35
+107	96	0.0	26	62 10 24
+108	89	0.0	27	58 11 20
+109	78	0.0	27	41 12 25
+110	93	0.0	27	60 10 23
+111	104	0.0	27	52 15 37
+112	127	0.0	28	69 19 39
+113	160	0.0	28	85 23 52
+114	204	0.0	28	117 21 66
+115	268	0.0	28	198 38 32
+116	266	0.0	29	168 34 64
+117	182	0.0	29	96 37 49
+118	281	0.0	29	121 47 113
+119	352	0.0	29	208 52 92
+120	612	0.0	30	407 71 134
+121	500	0.0	30	353 64 83
+122	101	0.0	30	22 24 55
+123	35	0.0	30	22 2 11
+124	14	0.0	31	5 3 6
+125	10	0.0	31	2 1 7
+126	60	0.0	31	25 8 27
+127	6	0.0	31	0 1 5
+128	7	0.0	32	2 2 3
+129	1	0.0	32	0 0 1
+130	4	0.0	32	0 0 4
+132	29	0.0	33	0 1 28
+
+
+=== First read: Adapter 2 ===
+
+Sequence: AAGCAGTGGTATCAACGCAGAGTGAATGGG; Type: regular 5'; Length: 30; Trimmed: 27292 times; Reverse-complemented: 0 times
+
+No. of allowed errors:
+0-3 bp: 0; 4-7 bp: 1; 8-11 bp: 2; 12-15 bp: 3; 16-19 bp: 4; 20-23 bp: 5; 24-27 bp: 6; 28-30 bp: 7
+
+Overview of removed sequences
+length	count	expect	max.err	error counts
+3	494	390.6	0	494
+4	940	97.7	1	113 827
+5	469	24.4	1	21 448
+6	148	6.1	1	4 129 15
+7	79	1.5	1	3 38 38
+8	83	0.4	2	0 14 69
+9	58	0.1	2	0 3 55
+10	34	0.0	2	0 0 30 4
+11	14	0.0	2	0 0 8 6
+12	11	0.0	3	0 0 4 7
+13	9	0.0	3	0 0 1 7 1
+14	11	0.0	3	0 0 1 7 3
+15	5	0.0	3	0 0 0 3 2
+16	3	0.0	4	0 0 0 1 2
+17	3	0.0	4	0 0 0 0 2 1
+19	1	0.0	4	0 0 0 0 0 1
+22	1	0.0	5	0 0 0 0 0 0 1
+23	10	0.0	5	0 0 0 0 0 0 0 10
+24	59	0.0	6	0 0 0 0 0 0 41 18
+25	30	0.0	6	0 0 0 0 1 12 16 1
+26	22	0.0	6	0 0 0 0 10 10 2
+27	52	0.0	6	0 0 0 21 14 11 5 1
+28	254	0.0	7	0 3 135 48 43 20 4 1
+29	1307	0.0	7	32 700 156 85 307 20 2 5
+30	21293	0.0	7	20181 778 170 77 68 12 6 1
+31	799	0.0	7	22 471 168 76 29 25 5 3
+32	374	0.0	7	0 1 191 84 57 19 17 5
+33	246	0.0	7	0 0 0 138 61 23 15 9
+34	229	0.0	7	0 0 0 0 139 34 38 18
+35	107	0.0	7	0 0 0 0 0 57 30 20
+36	91	0.0	7	0 0 0 0 0 0 60 31
+37	56	0.0	7	0 0 0 0 0 0 0 56
+This is cutadapt 2.8 with Python 3.8.10
+Command line parameters: -j 1 -g CAAGCGTTGGCTTCTCGCATCT -e 0.25 -o test/temps/UMI.fastq.temp0 test/temps/cleanr1fq2.fq
+Processing reads on 1 core in single-end mode ...
+Finished in 0.17 s (7 us/read; 8.85 M reads/minute).
+
+=== Summary ===
+
+Total reads processed:                  25,000
+Reads with adapters:                    24,894 (99.6%)
+Reads written (passing filters):        25,000 (100.0%)
+
+Total basepairs processed:     3,750,000 bp
+Total written (filtered):      3,202,110 bp (85.4%)
+
+=== Adapter 1 ===
+
+Sequence: CAAGCGTTGGCTTCTCGCATCT; Type: regular 5'; Length: 22; Trimmed: 24894 times; Reverse-complemented: 0 times
+
+No. of allowed errors:
+0-3 bp: 0; 4-7 bp: 1; 8-11 bp: 2; 12-15 bp: 3; 16-19 bp: 4; 20-22 bp: 5
+
+Overview of removed sequences
+length	count	expect	max.err	error counts
+17	1	0.0	4	0 0 0 0 0 1
+19	1	0.0	4	0 0 0 0 0 1
+20	5	0.0	5	0 0 2 0 1 2
+21	181	0.0	5	20 150 8 0 0 3
+22	24492	0.0	5	24095 341 36 8 9 3
+23	120	0.0	5	18 92 5 3 1 1
+24	28	0.0	5	0 0 22 4 1 1
+25	27	0.0	5	0 0 0 23 3 1
+26	31	0.0	5	0 0 0 0 28 3
+27	8	0.0	5	0 0 0 0 0 8
+This is cutadapt 2.8 with Python 3.8.10
+Command line parameters: -j 1 -a ATCCACGTGCTTGAGAGGCCAGAGCATTCG -e 0.25 -o test/temps/index.fastq.temp0 test/temps/cleanr1fq2.fq
+Processing reads on 1 core in single-end mode ...
+Finished in 0.23 s (9 us/read; 6.54 M reads/minute).
+
+=== Summary ===
+
+Total reads processed:                  25,000
+Reads with adapters:                    23,021 (92.1%)
+Reads written (passing filters):        25,000 (100.0%)
+
+Total basepairs processed:     3,750,000 bp
+Total written (filtered):      1,226,973 bp (32.7%)
+
+=== Adapter 1 ===
+
+Sequence: ATCCACGTGCTTGAGAGGCCAGAGCATTCG; Type: regular 3'; Length: 30; Trimmed: 23021 times; Reverse-complemented: 0 times
+
+No. of allowed errors:
+0-3 bp: 0; 4-7 bp: 1; 8-11 bp: 2; 12-15 bp: 3; 16-19 bp: 4; 20-23 bp: 5; 24-27 bp: 6; 28-30 bp: 7
+
+Bases preceding removed adapters:
+  A: 87.4%
+  C: 5.2%
+  G: 3.7%
+  T: 3.7%
+  none/other: 0.0%
+WARNING:
+    The adapter is preceded by "A" extremely often.
+    The provided adapter sequence could be incomplete at its 3' end.
+
+Overview of removed sequences
+length	count	expect	max.err	error counts
+3	23	390.6	0	13 10
+4	35	97.7	1	4 31
+5	18	24.4	1	1 17
+6	11	6.1	1	0 11
+7	3	1.5	1	0 1 2
+8	5	0.4	2	0 0 5
+9	3	0.1	2	0 0 3
+10	1	0.0	2	0 0 1
+13	1	0.0	3	0 0 0 1
+36	1	0.0	7	1
+42	1	0.0	7	1
+82	2	0.0	7	2
+84	3	0.0	7	3
+85	1	0.0	7	1
+88	1	0.0	7	1
+95	5	0.0	7	2 0 0 0 1 1 0 1
+98	1	0.0	7	0 1
+101	3	0.0	7	0 0 0 0 3
+102	1	0.0	7	1
+103	1	0.0	7	1
+104	3	0.0	7	3
+105	2	0.0	7	2
+107	8	0.0	7	5 1 0 0 0 2
+108	24	0.0	7	11 6 1 0 0 3 0 3
+109	176	0.0	7	127 15 5 3 5 3 10 8
+110	21072	0.0	7	17080 1222 204 118 191 473 882 902
+111	1379	0.0	7	963 168 45 23 15 33 65 67
+112	188	0.0	7	126 27 8 4 1 5 9 8
+113	28	0.0	7	14 6 2 0 1 0 3 2
+114	11	0.0	7	5 1 0 0 0 2 2 1
+115	2	0.0	7	0 1 0 0 0 0 1
+116	2	0.0	7	1 0 1
+117	2	0.0	7	1 1
+119	1	0.0	7	0 0 0 0 1
+120	2	0.0	7	1 0 0 0 0 0 0 1
+131	1	0.0	7	1
+
+
+WARNING:
+    One or more of your adapter sequences may be incomplete.
+    Please see the detailed output above.
+This is cutadapt 2.8 with Python 3.8.10
+Command line parameters: -j 1 -g ATCCACGTGCTTGAGAGGCCAGAGCATTCG...GTGGCCGATGTTTCGCATCGGCGTACGACT -e 0.25 -o test/temps/index.fastq.temp1 test/temps/cleanr1fq2.fq
+Processing reads on 1 core in single-end mode ...
+Finished in 0.38 s (15 us/read; 3.90 M reads/minute).
+
+=== Summary ===
+
+Total reads processed:                  25,000
+Reads with adapters:                    20,560 (82.2%)
+Reads written (passing filters):        25,000 (100.0%)
+
+Total basepairs processed:     3,750,000 bp
+Total written (filtered):        845,612 bp (22.5%)
+
+=== Adapter 3 ===
+
+Sequence: ATCCACGTGCTTGAGAGGCCAGAGCATTCG...GTGGCCGATGTTTCGCATCGGCGTACGACT; Type: linked; Length: 30+30; 5' trimmed: 20560 times; 3' trimmed: 20560 times
+; Reverse-complemented: 0 times
+
+No. of allowed errors:
+0-3 bp: 0; 4-7 bp: 1; 8-11 bp: 2; 12-15 bp: 3; 16-19 bp: 4; 20-23 bp: 5; 24-27 bp: 6; 28-30 bp: 7
+
+No. of allowed errors:
+0-3 bp: 0; 4-7 bp: 1; 8-11 bp: 2; 12-15 bp: 3; 16-19 bp: 4; 20-23 bp: 5; 24-27 bp: 6; 28-30 bp: 7
+
+Overview of removed sequences at 5' end
+length	count	expect	max.err	error counts
+49	1	0.0	7	1
+60	2	0.0	7	1 0 0 0 0 0 0 1
+62	2	0.0	7	0 0 0 0 0 0 1 1
+63	4	0.0	7	1 1 0 0 0 0 0 2
+64	16	0.0	7	1 0 1 0 0 1 3 10
+65	17	0.0	7	0 2 0 0 0 3 6 6
+66	30	0.0	7	5 1 2 0 3 6 8 5
+67	62	0.0	7	14 13 5 9 3 3 10 5
+68	290	0.0	7	125 73 48 8 6 15 11 4
+69	1666	0.0	7	954 580 63 21 12 16 9 11
+70	17826	0.0	7	16949 650 90 43 30 24 26 14
+71	291	0.0	7	127 108 17 5 4 6 15 9
+72	91	0.0	7	11 5 28 12 8 6 11 10
+73	72	0.0	7	5 1 0 26 7 10 9 14
+74	43	0.0	7	0 0 0 0 20 6 7 10
+75	29	0.0	7	2 0 0 0 0 19 3 5
+76	66	0.0	7	3 0 0 0 0 0 54 9
+77	33	0.0	7	1 0 0 0 0 0 1 31
+78	2	0.0	7	1 0 0 0 0 0 0 1
+79	3	0.0	7	0 0 0 0 3
+82	1	0.0	7	0 1
+85	4	0.0	7	2 0 0 0 1 1
+91	1	0.0	7	0 0 0 0 0 0 0 1
+92	1	0.0	7	1
+95	1	0.0	7	1
+96	3	0.0	7	3
+98	2	0.0	7	2
+138	1	0.0	7	1
+
+
+
+Overview of removed sequences at 3' end
+length	count	expect	max.err	error counts
+3	62	390.6	0	37 25
+4	116	97.7	1	9 107
+5	36	24.4	1	5 31
+6	9	6.1	1	1 5 3
+7	10	1.5	1	0 5 5
+8	4	0.4	2	0 1 3
+9	4	0.1	2	0 0 4
+10	1	0.0	2	0 0 1
+25	1	0.0	6	1
+36	1	0.0	7	1
+43	9	0.0	7	6 1 1 0 0 1
+44	4	0.0	7	3 0 1
+46	4	0.0	7	4
+47	1	0.0	7	1
+50	2	0.0	7	2
+57	5	0.0	7	2 0 1 0 0 1 1
+60	1	0.0	7	1
+63	3	0.0	7	3
+64	1	0.0	7	1
+65	1	0.0	7	1
+66	4	0.0	7	3 1
+67	1	0.0	7	0 1
+68	1	0.0	7	0 0 1
+69	7	0.0	7	3 2 1 0 0 0 0 1
+70	30	0.0	7	10 17 1 0 0 2
+71	236	0.0	7	172 38 8 6 3 1 4 4
+72	17529	0.0	7	15424 1444 281 118 65 65 67 65
+73	2019	0.0	7	1489 319 94 56 22 13 9 17
+74	351	0.0	7	241 75 15 9 5 1 3 2
+75	65	0.0	7	40 17 2 2 3 0 1
+76	18	0.0	7	7 9 0 0 1 1
+77	8	0.0	7	3 2 2 0 1
+78	7	0.0	7	3 3 0 0 0 0 0 1
+79	3	0.0	7	1 2
+82	3	0.0	7	1 0 0 0 0 0 0 2
+84	1	0.0	7	0 0 0 1
+86	1	0.0	7	0 0 0 0 1
+93	1	0.0	7	1
+	STAR --runMode genomeGenerate --runThreadN 1 --genomeDir test/temps/barcode_db --genomeFastaFiles test/temps/barcode_xy.fasta --genomeSAindexNbases 7
+	STAR version: 2.7.9a   compiled: 2021-05-04T09:43:56-0400 vega:/home/dobin/data/STAR/STARcode/STAR.master/source
+Mar 26 16:35:15 ..... started STAR run
+Mar 26 16:35:15 ... starting to generate Genome files
+!!!!! WARNING: --genomeSAindexNbases 7 is too large for the genome size=40000, which may cause seg-fault at the mapping step. Re-run genome generation with recommended --genomeSAindexNbases 6
+Mar 26 16:35:16 ... starting to sort Suffix Array. This may take a long time...
+Mar 26 16:35:18 ... sorting Suffix Array chunks and saving them to disk...
+Mar 26 16:35:19 ... loading chunks from disk, packing SA...
+Mar 26 16:35:20 ... finished generating suffix array
+Mar 26 16:35:20 ... generating Suffix Array index
+Mar 26 16:35:20 ... completed Suffix Array index
+Mar 26 16:35:20 ... writing Genome to disk ...
+Mar 26 16:35:21 ... writing Suffix Array to disk ...
+Mar 26 16:35:21 ... writing SAindex to disk
+Mar 26 16:35:21 ..... finished successfully
+	STAR --runThreadN 1 --genomeDir test/temps/barcode_db --readFilesIn test/combine.fq --outFileNamePrefix test/temps/barcodeMapping/temp --outSAMtype SAM --outFilterMismatchNmax 3 --outFilterMatchNmin 13 --alignEndsType Local --scoreGapNoncan -1000 --scoreGapATAC -1000 --alignIntronMax 1 --outFilterMultimapNmax -1 --outSAMunmapped Within --outFilterMultimapScoreRange 0 --seedSearchStartLmax 12 --outFilterScoreMinOverLread 0 --outFilterMatchNminOverLread 0 --outFilterMismatchNoverLmax 0.7 --outFilterMismatchNoverReadLmax 0.7
+	STAR version: 2.7.9a   compiled: 2021-05-04T09:43:56-0400 vega:/home/dobin/data/STAR/STARcode/STAR.master/source
+Mar 26 16:35:21 ..... started STAR run
+Mar 26 16:35:21 ..... loading genome
+Mar 26 16:35:22 ..... started mapping
+Mar 26 16:35:26 ..... finished mapping
+Mar 26 16:35:26 ..... finished successfully
+	STAR --genomeDir mouseIndex/ --readFilesIn test/combine.fq --outFileNamePrefix test/STAR/temp --runThreadN 1 --sjdbGTFfile mmu.all.gtf --outSAMattributes NH HI AS nM NM --genomeLoad NoSharedMemory --limitOutSAMoneReadBytes 200000000 --outFilterMultimapNmax -1 --outFilterMultimapScoreRange 0 --readMatesLengthsIn NotEqual --limitBAMsortRAM 0 --outMultimapperOrder Random --outSAMtype BAM SortedByCoordinate --outSAMunmapped Within --outSAMorder Paired --outSAMprimaryFlag AllBestScore --outSAMmultNmax -1 --outFilterType Normal --outFilterScoreMinOverLread 0 --alignSJDBoverhangMin 30 --outFilterMatchNmin 15 --outFilterMatchNminOverLread 0 --outFilterMismatchNoverLmax 0.1 --outFilterMismatchNoverReadLmax 0.15 --alignIntronMin 20 --alignIntronMax 1000000 --alignEndsType Local
+	STAR version: 2.7.9a   compiled: 2021-05-04T09:43:56-0400 vega:/home/dobin/data/STAR/STARcode/STAR.master/source
+Mar 26 16:35:26 ..... started STAR run
+Mar 26 16:35:26 ..... loading genome
+Mar 26 16:35:49 ..... processing annotations GTF
+Mar 26 16:35:52 ..... started mapping
+Mar 26 16:35:55 ..... finished mapping
+Mar 26 16:35:55 ..... started sorting BAM
+Mar 26 16:35:56 ..... finished successfully
+[INFO] parallel_sam_view done.

@@ -1,0 +1,14 @@
+{
+    "R1": "example.R1.fastq.gz",
+    "R2": "example.R2.fastq.gz",
+    "barcode_file": "spatial_barcodes.txt",
+    "PrimerStructure1": "AAGCAGTGGTATCAACGCAGAGTGAATGGG_b_A{10}N{150}",
+    "StructureUMI": "CAAGCGTTGGCTTCTCGCATCT_10",
+    "StructureBarcode": "20_ATCCACGTGCTTGAGAGGCCAGAGCATTCG:ATCCACGTGCTTGAGAGGCCAGAGCATTCG...GTGGCCGATGTTTCGCATCGGCGTACGACT",
+    "threadnum": 1,
+    "steps": 7,
+    "outputfolder": "output/",
+    "gtffile": "mmu.all.gtf",
+    "starref": "mouseIndex/",
+    "options": "H"
+}
