@@ -30,4 +30,4 @@
 
 **8. singleCutadapt.py**
 
-    A core Python script for barcode/UMI extraction, capable of multiple sequential calls to Cutadapt to trim specified segments and then merge them into one or more FASTQ files; it has been updated to improve parallel processing and merging logic.
+   A core Python script for barcode/UMI extraction, capable of multiple sequential calls to Cutadapt to trim specified segments and then merge them into one or more FASTQ files; it has been updated to improve parallel processing and merging logic.
