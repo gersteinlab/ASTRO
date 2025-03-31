@@ -22,6 +22,12 @@ filtmatbyrt --help
 ASTRO: Main pipeline entry point.  
 filtmatbyrt: Independent row-column filtering/merging tool.  
 
+Alternative: the Docker image is hosted on Docker Hub and can be downloaded using the following command
+
+```bash
+docker pull zhiyuanchu/astro:v1.0
+```
+
 3.Parameter Description
 The ASTRO script accepts parameters via the command line or a JSON file. The main parameters are listed below. Certain parameters are only required for specific steps. If these steps are executed (--steps control) but their parameters are missing, the program will perform a runtime check and exit with an error.
 <table>
