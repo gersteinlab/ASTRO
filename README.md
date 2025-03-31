@@ -169,6 +169,42 @@ The ASTRO script accepts parameters via the command line or a JSON file. The mai
       workflow.
       </td>
     </tr>
+    <tr>
+      <td>barcodemode</td>
+      <td>No</td>
+      <td>Step 1</td>
+      <td>"spatial"</td>
+      <td>
+      When set to "singlecell", enables single-cell mode. If kept as "spatial", the pipeline runs in the conventional spatial mode.
+      </td>
+    </tr>
+    <tr>
+      <td>barcode_threshold</td>
+      <td>No</td>
+      <td>Step 1</td>
+      <td>100</td>
+      <td>
+      In single-cell mode, when extracting barcodes automatically, any barcode whose occurrence is below this threshold will be discarded.
+      </td>
+    </tr>
+    <tr>
+      <td>barcodelength</td>
+      <td>No</td>
+      <td>Step 1</td>
+      <td>0</td>
+      <td>
+      In single-cell mode, if greater than 0, only barcodes of length barcodelength will be retained. If set to 0, no length filtering is applied.
+      </td>
+    </tr>
+    <tr>
+      <td>barcode_file</td>
+      <td>No (for single-cell mode)<br/>Yes (for spatial mode)</td>
+      <td>Step 1</td>
+      <td>None or "notavailable"</td>
+      <td>
+      In spatial mode, this parameter must be provided by the user and must include barcode coordinate information. In single-cell mode, if a ready-made file is not available, set this to "notavailable", so ASTRO can generate a three-column barcode file automatically.
+      </td>
+    </tr>
   </tbody>
 </table>
 
@@ -224,6 +260,7 @@ hsa.no_piRNA.gtf: Gene annotation file.
   "R2": "R2.fq",  
   "barcode_file": "spatial_barcodes.txt",  
   "PrimerStructure1": "AAGCAGTGGTATCAACGCAGAGTGAATGGG_b_A{10}N{150}",
+  
   "StructureUMI": "CAAGCGTTGGCTTCTCGCATCT_10",  
   "StructureBarcode": "20_ATCCACGTGCTTGAGAGGCCAGAGCATTCG:...GTGGCCGATGTTTCGCATCGGCGTACGACT",  
   "threadnum": 16,  
@@ -235,3 +272,15 @@ hsa.no_piRNA.gtf: Gene annotation file.
 
 4.3 Run the command:
 ASTRO parameter.json
+
+5. Single-Cell Mode
+
+In the conventional spatial transcriptomics (spatial) mode, ASTRO requires a `barcode_file` that contains at least three columns (barcode sequence, X coordinate, and Y coordinate).
+
+However, in single-cell mode (`barcodemode="singlecell"`), if the user does not provide an existing barcode file (or sets it to `"notavailable"`), ASTRO will, during **Step 1 (Demultiplexing)**, automatically enumerate all possible barcodes from R2 (which typically contains cell barcode information) based on **`structurebarcode`**, and then filter them according to **`barcode_threshold`** (the minimum count of occurrences required for each barcode) and **`barcodelength`** (if greater than 0, only barcodes of that specific length are retained). It then generates an “auto-generated” three-column barcode file (in the form of `barcode, i, i`) for subsequent steps.
+
+In the feature counting output, ASTRO will replace the temporary column names (`ixi`) with the actual single-cell barcodes, allowing these barcodes to be used directly as column names in the expression matrix. This mode is particularly suitable for single-cell sequencing scenarios where the precise barcodes are not known in advance, or when they need to be automatically extracted and filtered from raw sequence data.
+
+If a barcode file is provided in single-cell mode, ASTRO will treat that file as a “whitelist”—after automatically enumerating barcodes, it retains only those that are both present in the whitelist and meet the threshold/length requirements. A three-column barcode file is then generated for the downstream workflow.
+
+In single-cell mode, Step 4 (Feature Filtering) by default only creates the basic expression matrix and does not perform further row/column variance filtering. If needed, you can run that manually afterward or configure the relevant parameters.
