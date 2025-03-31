@@ -52,12 +52,17 @@ def ASTRO (**kwargs):
         args['gtffile'] = args.get('gtffile') or data.get('gtffile') or sys.exit("gtffile is not specified in both parser and json")
         args['barcode_file'] = args.get('barcode_file') or data.get('barcode_file') or sys.exit("barcode_file is not specified in both parser and json")
         args['qualityfilter'] = args.get('qualityfilter') or data.get('qualityfilter') or '25:0.75'
-        countfeature(args['gtffile'], args['threadnum'], args['options'], args['barcode_file'], args['outputfolder'], args['qualityfilter'])
+        args['genes2check'] = args.get('genes2check') or data.get('genes2check') or False
+        usedgtf = args['gtffile']
+        if args['genes2check']:
+            from .validgene import getvalidedgtf_parallel
+            usedgtf = getvalidedgtf_parallel(usedgtf, args['outputfolder'], args['genes2check'], args['threadnum'])
+        countfeature(usedgtf, args['threadnum'], args['options'], args['barcode_file'], args['outputfolder'], args['qualityfilter'])
         if args['qualityfilter'] != '0:0' or args['qualityfilter'] != 'NA':
             args['removeByDim'] = args.get('removeByDim') or data.get('removeByDim') or True
             args['filterlogratio'] = args.get('filterlogratio') or data.get('filterlogratio') or 2
             if args['removeByDim']:
-                featurefilter(args['gtffile'], args['options'], args['barcode_file'], args['filterlogratio'], args['outputfolder'])
+                featurefilter(usedgtf, args['options'], args['barcode_file'], args['filterlogratio'], args['outputfolder'])
 
     with open(args['outputfolder'] + "/input.json", "w") as json_file:
         json.dump(args, json_file, indent=4)
