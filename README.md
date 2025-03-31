@@ -284,3 +284,56 @@ In the feature counting output, ASTRO will replace the temporary column names (`
 If a barcode file is provided in single-cell mode, ASTRO will treat that file as a “whitelist”—after automatically enumerating barcodes, it retains only those that are both present in the whitelist and meet the threshold/length requirements. A three-column barcode file is then generated for the downstream workflow.
 
 In single-cell mode, Step 4 (Feature Filtering) by default only creates the basic expression matrix and does not perform further row/column variance filtering. If needed, you can run that manually afterward or configure the relevant parameters.
+
+6.1 Symbol meanings in StructureBarcode / StructureUMI
+
+A colon (:) means concatenating multiple segments. 
+
+“20_CGTTGGCTTCT”Means that, on the 3' end, we recognize the fixed adapter CGTTGGCTTCT.Then we take the 20 nucleotides to the left of that fixed sequence.In other words, find CGTTGGCTTCT at the read’s 3' end and extract the preceding 20 bases.
+
+“CGTTGGCTTCT_20”Means that, on the 5' end, we recognize the fixed adapter CGTTGGCTTCT.Then we take the 20 nucleotides to the right of that fixed sequence.In other words, find CGTTGGCTTCT at the read’s 5' end and keep the next 20 bases.
+
+“TTCTCGCATCT...ATCCACGTGCTTGA”Means we take what lies between two stable (known) sequences.Here, the left boundary is TTCTCGCATCT and the right boundary is ATCCACGTGCTTGA, so we extract whatever is in between them.
+
+6.2 Two ways to write (or “point to”) barcode/UMI locations in R2
+
+**Method A**: Use explicit numeric positions
+
+When you already know the barcode is strictly located at positions (23–30, 61–68, 99–106) and the UMI is at (137–146), you can specify:
+
+"StructureBarcode": "22_8:60_8:98_8"
+
+"StructureUMI": "136_10"
+
+For 22_8, it means: skip the first 22 bases, then keep the next 8 bases (covering R2 positions 23–30).
+For 60_8, it means: skip the first 60 bases, then keep the next 8 (positions 61–68).
+For 98_8, it means skip the first 98 bases, keep the next 8 (positions 99–106).
+
+Similarly, 136_10 means skip 136 bases, then keep the next 10 (positions 137–146) for the UMI.
+
+Caution: If the read does not strictly match these exact positions (for instance, if some reads have shorter length or shifted inserts), then using hard-coded positions can cause errors or incorrect trimming.
+
+**Method B**: Rely on stable flanking sequences
+
+In many protocols, the positions can shift a bit, but each barcode or UMI region is still bounded by stable/fixed adapter sequences. In that scenario, you can specify the left and right flanking adapters that sandwich the barcode or UMI.
+
+For example, assume we know the read has the following layout of R2 (showing only some parts for illustration):
+
+XX AGCGTTGGCTTCTCGCATCT BBBBBBBB ATCCACGTGCTTGAGCGCGCTGCATACTTG BBBBBBBB CCCATGATCGTCCGAAGGCCAGAGCATTCG BBBBBBBB GTGGCCGATGTTTCGCATCGGCGTACGACT UUUUUUUUUU XXXXX
+
+X stands for arbitrary nucleotides (non-barcode).B is the actual barcode.U stands for the UMI region.The bold segments are stable, known sequences that mark the boundaries before and after each barcode/UMI.
+
+By observation:The segment at positions 23–30 is bounded by AGCGTTGGCTTCTCGCATCT (left) and ATCCACGTGCTTGAGCGCGCTGCATACTTG (right). The 8 bp sandwiched between these two adapters is the barcode.Similarly, for positions 61–68, the stable adapters around that 8 bp region are ATCCACGTGCTTGAGCGCGCTGCATACTTG (left) and CCCATGATCGTCCGAAGGCCAGAGCATTCG (right).For positions 99–106, the bounding adapters are CCCATGATCGTCCGAAGGCCAGAGCATTCG and GTGGCCGATGTTTCGCATCGGCGTACGACT.
+
+Hence, you can write:
+"StructureBarcode": "AGCGTTGGCTTCTCGCATCT...ATCCACGTGCTTGAGCGCGCTGCATACTTG : ATCCACGTGCTTGAGCGCGCTGCATACTTG...CCCATGATCGTCCGAAGGCCAGAGCATTCG : CCCATGATCGTCCGAAGGCCAGAGCATTCG...GTGGCCGATGTTTCGCATCGGCGTACGACT"
+
+(where each colon : indicates concatenating those three sub-barcodes in order).
+
+If the UMI is at positions 137–146, and it always follows the stable prefix GTGGCCGATGTTTCGCATCGGCGTACGACT, then you can define:
+
+"StructureUMI": "GTGGCCGATGTTTCGCATCGGCGTACGACT_10"
+
+meaning we look for that fixed adapter on the 5' end, and once found, we keep the next 10 bases as the UMI.
+
+This approach gives flexibility in cases where the read length or positions vary slightly, as long as the bounding sequences remain identifiable.
