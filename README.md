@@ -8,9 +8,9 @@ Feature Filtering: Filters out low-quality or abnormal genes/barcodes based on u
 
 2.Installation Guide  
 External dependencies: ASTRO requires the following external tools to function- STAR, bedtools, samtools, and cutadapt. If you have Python 3.6+ installed locally, follow these steps to set it up.  
-Install from source repository or compressed package:
+Install from source repository or compressed package:  
 2.1 Clone the repository:  
-git clone https://github.com/dingyaozhang/WholeST.git  
+git clone git@github.com:gersteinlab/ASTRO.git  
 2.2 Enter the directory named "python":  
 cd python  
 2.3 Install dependencies and build/install:  
