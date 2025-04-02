@@ -211,6 +211,15 @@ The ASTRO script accepts parameters via the command line or a JSON file. The mai
       In spatial mode, this parameter must be provided by the user and must include barcode coordinate information. In single-cell mode, if a ready-made file is not available, set this to "notavailable", so ASTRO can generate a three-column barcode file automatically.
       </td>
     </tr>
+    <tr>
+      <td>genes2check</td>
+      <td>No</td>
+      <td>Step 4</td>
+      <td>False</td>
+      <td>
+      If provided (a text file listing suspect genes, e.g. piRNAs/miRNAs), ASTRO runs an advanced check before feature counting. Genes failing this check are removed from the GTF annotation, effectively excluding them from the final expression matrix.
+      </td>
+    </tr>
   </tbody>
 </table>
 
@@ -266,7 +275,6 @@ hsa.no_piRNA.gtf: Gene annotation file.
   "R2": "R2.fq",  
   "barcode_file": "spatial_barcodes.txt",  
   "PrimerStructure1": "AAGCAGTGGTATCAACGCAGAGTGAATGGG_b_A{10}N{150}",
-  
   "StructureUMI": "CAAGCGTTGGCTTCTCGCATCT_10",  
   "StructureBarcode": "20_ATCCACGTGCTTGAGAGGCCAGAGCATTCG:...GTGGCCGATGTTTCGCATCGGCGTACGACT",  
   "threadnum": 16,  
@@ -343,3 +351,9 @@ If the UMI is at positions 137–146, and it always follows the stable prefix GT
 meaning we look for that fixed adapter on the 5' end, and once found, we keep the next 10 bases as the UMI.
 
 This approach gives flexibility in cases where the read length or positions vary slightly, as long as the bounding sequences remain identifiable.
+
+7. Genes2Check Advanced Filtering
+
+If your experiment includes some suspicious genes (for example, piRNA or miRNA), you can list their gene IDs or gene names in a text file (e.g., genes2check.txt) and specify this file in the ASTRO parameters using --genes2check genes2check.txt (or by adding "genes2check": "genes2check.txt" in the JSON). When running Step 4 (Feature Counting), ASTRO will call its built-in advanced detection logic (getvalidedgtf_parallel) to determine whether to discard these suspicious genes based on their over-enrichment in corresponding control regions. If anomalous enrichment is detected, those entries will be removed before formal counting, thereby reducing false positives and yielding a more accurate gene expression matrix.
+
+This feature relies on the BAM file (STAR/tempfiltered.bam) and its index (which will be created automatically if absent) generated in the previous step. It then checks each gene interval in a multithreaded manner. The detection algorithm uses statistical tests (such as Poisson tests), and if it concludes that a gene interval is significantly higher than the background, it deems the interval likely to be junk or a spurious mapping. You can customize the list of genes in genes2check.txt according to your needs (e.g., including lncRNA, miRNA, or piRNA).
