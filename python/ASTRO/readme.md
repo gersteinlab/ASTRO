@@ -31,3 +31,7 @@
 **9. olddriver.py**
 
    A driver script for the older pipeline (run_old_pipeline), containing legacy-style logic compatible with earlier workflows.
+
+**10. validgene.py**
+
+   This script uses a Poisson test to compare each gene’s coverage against background and retains only genes passing the significance threshold, generating a filtered GTF.
