@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-
+import collections
 import re
 import os
 import gzip
@@ -7,6 +7,8 @@ import subprocess
 import multiprocessing as mp
 import sys
 import tempfile
+from collections import defaultdict, Counter
+
 
 def singleCutadapt(barcodestr,outputfile,remainfa,threadnum):
 
@@ -193,8 +195,6 @@ def Fqs2_1fq(fa, fb, fc, out, nproc, chunk_size, temp_dir):
                 sys.stderr.write(f"Warning: Could not remove temp file {tf}: {e}\n")
 
 
-
-
 def process_chunk(chunk_lines):
     read_count = set()
     read_delete = set()  
@@ -326,9 +326,6 @@ def filter_sam(input_sam, output_fq, num_processes, chunk_size):
     #        if chunk:
     #            yield (chunk_index, chunk)
 
-
-
-
 def demultiplexing(R1, R2, barcode_file, PrimerStructure1, StructureUMI, StructureBarcode, threadnum, outputfolder):
     os.makedirs(os.path.join(outputfolder, 'temps'), exist_ok=True)
     Cleanr1Fq1 = os.path.join(outputfolder, "temps/cleanr1fq1.fq")
@@ -339,7 +336,7 @@ def demultiplexing(R1, R2, barcode_file, PrimerStructure1, StructureUMI, Structu
     index_fq = os.path.join(outputfolder, "temps/index.fastq")
     UMI_fq = os.path.join(outputfolder, "temps/UMI.fastq")
     temps_path = os.path.join(outputfolder, "temps/") 
-    #
+    
     prefixread1 = PrimerStructure1.split('_', 1)[0]
     suffixread1 = PrimerStructure1.rsplit('_', 1)[-1]
     
@@ -353,7 +350,7 @@ def demultiplexing(R1, R2, barcode_file, PrimerStructure1, StructureUMI, Structu
           header = f">{fields[1]}_{fields[2]}"
           sequence = fields[0]
           barcode_db_file.write(f"{header}\n{sequence}\n")
-    subprocess.run([ "STAR", "--runMode", "genomeGenerate", "--runThreadN", threadnum, "--genomeDir", barcode_db_path, "--genomeFastaFiles", barcode_db_fa, "--genomeSAindexNbases", "7" ])
+    subprocess.run([ "STAR", "--runMode", "genomeGenerate", "--runThreadN", threadnum, "--genomeDir", barcode_db_path, "--genomeFastaFiles", barcode_db_fa, "--genomeSAindexNbases", "7" ,"--limitGenomeGenerateRAM", "50000000000"])
     
     
     Fqs2_1fq(index_fq,Cleanr1Fq1,UMI_fq,CombineFq,16,1000000,temps_path)
@@ -389,3 +386,80 @@ def demultiplexing(R1, R2, barcode_file, PrimerStructure1, StructureUMI, Structu
         if os.path.isfile(file_path):
             os.remove(file_path)  
     os.rmdir(barcode_mapping_dir) 
+
+
+def get_barcode_for_single_cell(R1, R2, barcode_file, PrimerStructure1, StructureUMI, StructureBarcode, threadnum, outputfolder,barcode_threshold=100,barcodelength=0):
+    barcode_threshold = int(barcode_threshold)
+    os.makedirs(os.path.join(outputfolder, 'temps'), exist_ok=True)
+    Cleanr1Fq1 = os.path.join(outputfolder, "temps/cleanr1fq1.fq")
+    Cleanr1Fq2 = os.path.join(outputfolder, "temps/cleanr1fq2.fq")
+    CombineFq = os.path.join(outputfolder, "combine.fq")
+    barcode_db_fa = os.path.join(outputfolder, "temps/barcode_xy.fasta")
+    barcode_db_path = os.path.join(outputfolder, "temps/barcode_db")
+    index_fq = os.path.join(outputfolder, "temps/index.fastq")
+    UMI_fq = os.path.join(outputfolder, "temps/UMI.fastq")
+    temps_path = os.path.join(outputfolder, "temps/") 
+    auto_bc_path = os.path.join(outputfolder, "temps", "auto_barcode.tsv")
+    
+    prefixread1 = PrimerStructure1.split('_', 1)[0]
+    suffixread1 = PrimerStructure1.rsplit('_', 1)[-1]
+    
+    threadnum = str(threadnum)
+    subprocess.run([ "cutadapt", "-e", "0.25", "-a", suffixread1, "--times", "4", "-g", prefixread1, "-j", threadnum, "-o", Cleanr1Fq1, "-p", Cleanr1Fq2, R1, R2])
+    singleCutadapt(StructureUMI,UMI_fq,Cleanr1Fq2,threadnum)
+    singleCutadapt(StructureBarcode,index_fq,Cleanr1Fq2,threadnum)
+
+    bar_counter = Counter()
+
+    def fastq_iter(fq):
+        while True:
+            l1 = fq.readline()
+            if not l1:
+                break
+            seq_line  = fq.readline()
+            plus_line = fq.readline()
+            qual_line = fq.readline()
+            if not qual_line:
+                break
+            yield seq_line.strip()
+
+    with open(index_fq, 'r') as fin:
+        for seq in fastq_iter(fin):
+            bar_counter[seq] += 1
+
+    if barcode_file != "notavailable":
+        whitelist = set()
+        with open(barcode_file, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line: 
+                    continue
+                arr = line.split('\t')
+                user_bc = arr[0]
+                whitelist.add(user_bc)
+
+        filtered = []
+        for bc, ct in bar_counter.most_common():
+            if bc not in whitelist:
+                continue
+            if ct < barcode_threshold:
+                break
+            if barcodelength>0 and len(bc)!=barcodelength:
+                continue
+            filtered.append(bc)
+    else:
+        filtered = []
+        for bc, ct in bar_counter.most_common():
+            if ct < barcode_threshold:
+                break
+            if barcodelength>0 and len(bc)!=barcodelength:
+                continue
+            filtered.append(bc)
+    
+    with open(auto_bc_path, 'w') as bf:
+        i = 1
+        for bc in filtered:
+            bf.write(f"{bc}\t{i}\t{i}\n")
+            i += 1
+
+    return auto_bc_path
