@@ -93,8 +93,39 @@ def featurefilter(gtffile, options, barcodes_file, filterlogratio, outputfolder)
     finalexpmattsv = os.path.join(outputfolder, "finalexpmat.tsv")
     genemat2tsv(input_file=expmatbedexcl, output_file=expmattsvexcel, barcodes_file=barcodes_file, gtf_file=gtffile, filter_str="0:0", easy_mode=do_easy_mode)
     filtMATbyRT(expmattsv, expmattsvexcel, finalexpmattsv, filterlogratio)
+    if "auto_barcode.tsv" in barcodes_file:
+    
+        auto_barcode_path = os.path.join(outputfolder, "temps", "auto_barcode.tsv")
+        if os.path.exists(auto_barcode_path):
+            i2bc = {}
+            with open(auto_barcode_path, 'r') as bf:
+                for line in bf:
+                    line=line.strip()
+                    if not line:
+                        continue
+                    bc_str, i_str, _ = line.split('\t')
+                    i2bc[i_str] = bc_str
 
+            tmp_renamed = finalexpmattsv + ".renamed"
+            with open(finalexpmattsv, 'r') as fin, open(tmp_renamed, 'w') as fout:
+                lines = fin.readlines()
+                if not lines:
+                    return
+                header = lines[0].rstrip('\n').split('\t')
+                new_header = []
+                for col in header:
+                    if col == "gene":
+                        new_header.append(col)
+                    else:
+                        part = col.split('x')
+                        if len(part)==2 and part[0]==part[1] and part[0] in i2bc:
+                            new_header.append(i2bc[part[0]])
+                        else:
+                            new_header.append(col)
+                fout.write('\t'.join(new_header) + '\n')
+                for line in lines[1:]:
+                    fout.write(line)
 
-
-
+            os.remove(finalexpmattsv)
+            os.rename(tmp_renamed, finalexpmattsv)
 
