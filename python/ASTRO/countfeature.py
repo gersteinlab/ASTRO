@@ -491,4 +491,4 @@ def countfeature(gtffile, threadnum, options, barcodes_file, outputfolder, quali
     if qualityfilter == 'NA' or qualityfilter == '0:0':
         genemat2tsv(input_file=expmatbed, output_file=expmattsv, barcodes_file=barcodes_file, gtf_file=gtffile, filter_str="0:0", easy_mode=do_easy_mode)
     else:
-        genemat2tsv(input_file=expmatbed, output_file=expmattsv, barcodes_file=barcodes_file, gtf_file=gtffile, easy_mode=do_easy_mode)
+        genemat2tsv(input_file=expmatbed, output_file=expmattsv, barcodes_file=barcodes_file, gtf_file=gtffile, filter_str=qualityfilter, easy_mode=do_easy_mode)
