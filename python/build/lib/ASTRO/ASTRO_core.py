@@ -88,6 +88,7 @@ def ASTRO (**kwargs):
                     StructureBarcode=args['StructureBarcode'],
                     threadnum=args['threadnum'], 
                     outputfolder=args['outputfolder'],
+                    ReadLayout = args['ReadLayout']
                 )
             else:
                 demultiplexing(

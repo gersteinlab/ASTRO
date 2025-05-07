@@ -28,7 +28,6 @@ def main():
     parser.add_argument("--removeByDim", help="remove wrong features by dimension")
     parser.add_argument("--filterlogratio", help="exclude extreme genes")
     parser.add_argument("--workflow", default="new", help="which workflow to run, old or new")
-    parser.add_argument("--ReadLayout", default="singleend", help="which Read Layout, singleend or pairedend")
 
     args = parser.parse_args()
     workflow = args.workflow
