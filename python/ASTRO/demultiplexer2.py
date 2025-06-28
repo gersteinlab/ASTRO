@@ -111,12 +111,15 @@ def process_chunk(chunk_lines):
     read_delete = set()  
     line = chunk_lines[0] 
     read_name0 = line
-    read_count.add(read_name0)
     for line in chunk_lines[1:]:
         read_name = line
         if read_name == read_name0:
             read_delete.add(read_name)
-    read_count.add(read_name)
+        else:
+            read_count.add(read_name0)
+            read_name0 = read_name
+    if read_name0 not in read_delete:
+        read_count.add(read_name0)
     return read_count, read_delete
 def total_delete(all_stats):
     total_read_count = set()
@@ -338,6 +341,10 @@ def demultiplexingPair(R1, R2, barcode_file, PrimerStructure1, StructureUMI, Str
     subprocess.run([ "STAR", "--runMode", "genomeGenerate", "--runThreadN", threadnum, "--genomeDir", barcode_db_path, "--genomeFastaFiles", barcode_db_fa, "--genomeSAindexNbases", "7" ,"--limitGenomeGenerateRAM", "50000000000"])
     
     
+    if limitOutSAMoneReadBytes4barcodeMapping != 'NA':
+        limitOutSAMoneReadBytes4barcodeMapping = ['--limitOutSAMoneReadBytes', limitOutSAMoneReadBytes4barcodeMapping]
+    else:
+        limitOutSAMoneReadBytes4barcodeMapping=[]
     subprocess.run([
     "STAR",
     "--runThreadN", threadnum,
@@ -359,7 +366,7 @@ def demultiplexingPair(R1, R2, barcode_file, PrimerStructure1, StructureUMI, Str
     "--outFilterMatchNminOverLread", "0",
     "--outFilterMismatchNoverLmax", "0.7",
     "--outFilterMismatchNoverReadLmax", "0.7"
-    ])
+    ]+limitOutSAMoneReadBytes4barcodeMapping)
     
     filter_samPair(os.path.join(outputfolder, "temps/barcodeMapping/tempAligned.out.sam"), CombineFq1, CombineFq2, int(threadnum), 1000000)
     os.replace(os.path.join(outputfolder, "temps/barcodeMapping/tempLog.final.out"),os.path.join(outputfolder, "barcodeMapping.out"))

@@ -31,6 +31,7 @@ def ASTRO (**kwargs):
     args['barcode_threshold'] = int(args.get('barcode_threshold') or data.get('barcode_threshold') or 100)
     args['barcodelength'] = int(args.get('barcodelength') or data.get('barcodelength') or 0) 
     args['ReadLayout']  = args.get('ReadLayout') or data.get('ReadLayout') or "singleend"
+    args['limitOutSAMoneReadBytes4barcodeMapping']  = args.get('limitOutSAMoneReadBytes4barcodeMapping') or data.get('limitOutSAMoneReadBytes4barcodeMapping') or "NA"
 
     os.makedirs(args['outputfolder'], exist_ok=True)
 
@@ -63,6 +64,7 @@ def ASTRO (**kwargs):
                     StructureBarcode=args['StructureBarcode'],
                     threadnum=args['threadnum'], 
                     outputfolder=args['outputfolder'],
+                    limitOutSAMoneReadBytes4barcodeMapping=args['limitOutSAMoneReadBytes4barcodeMapping']
                 )
             else:
                 demultiplexing(
@@ -71,7 +73,8 @@ def ASTRO (**kwargs):
                     StructureUMI=args['StructureUMI'],
                     StructureBarcode=args['StructureBarcode'],
                     threadnum=args['threadnum'], 
-                    outputfolder=args['outputfolder']
+                    outputfolder=args['outputfolder'],
+                    limitOutSAMoneReadBytes4barcodeMapping=args['limitOutSAMoneReadBytes4barcodeMapping']
                 )
             
            
