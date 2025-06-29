@@ -429,7 +429,7 @@ def demultiplexing(R1, R2, barcode_file, PrimerStructure1, StructureUMI, Structu
     
     Fqs2_1fq(index_fq,Cleanr1Fq1,UMI_fq,CombineFq,16,1000000,temps_path)
     if limitOutSAMoneReadBytes4barcodeMapping != 'NA':
-        limitOutSAMoneReadBytes4barcodeMapping = ['--limitOutSAMoneReadBytes', limitOutSAMoneReadBytes4barcodeMapping]
+        limitOutSAMoneReadBytes4barcodeMapping = ['--limitOutSAMoneReadBytes', str(limitOutSAMoneReadBytes4barcodeMapping)]
     else:
         limitOutSAMoneReadBytes4barcodeMapping=[]
     subprocess.run([
