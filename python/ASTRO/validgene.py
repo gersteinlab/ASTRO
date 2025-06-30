@@ -15,17 +15,17 @@ from statsmodels.stats.rates import test_poisson_2indep
 def alignment_end(pos, cigar):
     """
     Calculate the end position of an alignment from start position and CIGAR string.
-    
+
     Parses a CIGAR string to determine how many reference bases are consumed
     by the alignment, then calculates the end position.
-    
+
     Args:
         pos (int): Start position of alignment (1-based)
         cigar (str): CIGAR string describing alignment operations
-    
+
     Returns:
         int: End position of alignment on reference (1-based, inclusive)
-        
+
     Note:
         Only operations that consume reference bases (M, D, N, =, X) are counted.
         Insertions (I), soft clips (S), hard clips (H), and padding (P) are ignored.
@@ -328,25 +328,25 @@ def getvalidedgtf_worker(line, genes2checkdict, bamfile, existchromosomes, hango
 def getvalidedgtf_parallel(gtfin, outputfolder, genes2check, hangout=5, threadsnum=4):
     """
     Validate suspicious genes in GTF annotation using statistical analysis of read alignments.
-    
+
     This function performs advanced filtering of potentially problematic genes (e.g., miRNAs, piRNAs)
     by analyzing their read coverage patterns compared to flanking control regions. Uses statistical
     tests to determine if genes show anomalous enrichment that might indicate spurious mapping.
-    
+
     Args:
         gtfin (str): Path to input GTF annotation file
         outputfolder (str): Output directory containing BAM files
         genes2check (str): Path to file listing gene names/IDs to validate
         hangout (int, optional): Size of flanking control regions (kb). Defaults to 5.
         threadsnum (int, optional): Number of parallel threads. Defaults to 4.
-    
+
     Returns:
         None: Creates filtered GTF files in the output directory
-        
+
     Creates:
         - Modified GTF files with suspicious genes removed
         - Statistical analysis reports for gene validation
-        
+
     Note:
         Requires indexed BAM file (tempfiltered.bam) from previous alignment step.
         Gene names in genes2check file must match GTF annotation entries.

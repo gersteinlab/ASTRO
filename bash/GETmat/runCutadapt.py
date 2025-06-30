@@ -8,10 +8,10 @@ import subprocess
 def simple_fastq_iterator(handle):
     """
     Parse FASTQ format files and yield individual sequence records.
-    
+
     Args:
         handle: File handle object for reading FASTQ data
-        
+
     Yields:
         tuple: (title, sequence, quality_string) for each FASTQ record
             - title (str): Sequence identifier without '@' prefix
@@ -31,16 +31,16 @@ def simple_fastq_iterator(handle):
 def cutfastq(filein, forward, length):
     """
     Trim FASTQ sequences to a specified length from either 5' or 3' end.
-    
+
     Creates a temporary file during processing and replaces the original file.
     Handles both gzip-compressed and uncompressed FASTQ files.
-    
+
     Args:
         filein (str): Path to input FASTQ file (can be .gz compressed)
         forward (bool): If True, trim from 5' end (keep first 'length' bases)
                        If False, trim from 3' end (keep last 'length' bases)
         length (int): Number of bases to keep after trimming
-    
+
     Returns:
         None: Modifies the input file in place
     """
@@ -64,18 +64,18 @@ def cutfastq(filein, forward, length):
 def combineFqs(outputfile, fqs):
     """
     Concatenate sequences from multiple FASTQ files into a single output file.
-    
+
     Reads corresponding entries from multiple FASTQ files simultaneously and
     concatenates their sequences and quality scores. All input files must have
     the same number of reads in the same order.
-    
+
     Args:
         outputfile (str): Path for the output combined FASTQ file (unused in current implementation)
         fqs (list): List of paths to input FASTQ files to be combined
-    
+
     Returns:
         None: Creates 'index.fastq' file in the global outputfolder directory
-        
+
     Note:
         The function creates a file named 'index.fastq' in the outputfolder directory,
         not using the outputfile parameter.

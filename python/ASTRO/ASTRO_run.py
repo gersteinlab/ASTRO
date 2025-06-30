@@ -8,22 +8,22 @@ import json
 def main():
     """
     Command-line interface for the ASTRO spatial transcriptomics pipeline.
-    
+
     This function provides the main entry point for running ASTRO from the command line.
     It parses command-line arguments and JSON configuration files, then launches the
     complete ASTRO workflow for spatial transcriptomics data processing.
-    
+
     The function supports both command-line parameters and JSON configuration files,
     with command-line arguments taking precedence over JSON values.
-    
+
     Returns:
         None: Executes the ASTRO pipeline with the provided configuration
-        
+
     Command-line Usage:
         ASTRO [json_file] [--param value] ...
         ASTRO --json_file_path config.json
         ASTRO --R1 reads1.fq --R2 reads2.fq --barcode_file barcodes.txt ...
-    
+
     See README.md for complete parameter documentation and usage examples.
     """
     parser = argparse.ArgumentParser(description="get information")

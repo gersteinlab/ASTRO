@@ -18,22 +18,22 @@ def star_align(
 ):
     """
     Perform RNA-seq alignment using STAR aligner.
-    
+
     Aligns RNA sequencing reads to a reference genome using STAR with
     customizable parameters. Supports GTF annotation for splice junction
     discovery and various output formats.
-    
+
     Args:
         genome_dir (str): Path to STAR genome index directory
-        read_files_in (str or list): Path(s) to input FASTQ file(s) 
+        read_files_in (str or list): Path(s) to input FASTQ file(s)
         out_prefix (str): Output file prefix for STAR results
         run_thread_n (int, optional): Number of threads to use. Defaults to 16.
         gtf_file (str, optional): Path to GTF annotation file. Defaults to None.
         extra_params (str or list, optional): Additional STAR parameters. Defaults to None.
-    
+
     Returns:
         None: STAR output files are created with the specified prefix
-        
+
     Raises:
         subprocess.CalledProcessError: If STAR alignment fails
     """
@@ -428,13 +428,13 @@ def genomemapping(
 ):
     """
     Perform genome mapping using STAR aligner and optional duplicate removal.
-    
+
     This function handles the complete genome mapping workflow:
     1. STAR alignment of reads to reference genome
     2. BAM file sorting and indexing
     3. Optional duplicate removal using samtools markdup or custom logic
     4. Quality filtering and final BAM processing
-    
+
     Args:
         starref (str): Path to STAR genome index directory
         gtffile (str): Path to GTF annotation file
@@ -445,10 +445,10 @@ def genomemapping(
         outputfolder (str): Output directory path
         STARparamfile (str, optional): Path to file with custom STAR parameters.
                                      Defaults to "NA" (use default parameters).
-    
+
     Returns:
         None: Creates aligned BAM files and logs in the output directory
-        
+
     Creates:
         - STAR/: Directory with STAR alignment outputs
         - genomemapping.log: Log file with processing information

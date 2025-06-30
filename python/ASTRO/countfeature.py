@@ -10,21 +10,21 @@ def inter_bed2geneFile(
 ):
     """
     Intersect BED intervals with GTF annotations to assign reads to genes.
-    
+
     Uses bedtools intersect to find overlaps between genomic intervals (from BED file)
     and gene annotations (from GTF file). For each interval, assigns the gene with
     the largest overlap or highest score based on the annotation attributes.
-    
+
     Args:
         inputbed (str): Path to input BED file with genomic intervals
         outputfile (str): Path to output file for gene assignments
         gtffile (str): Path to GTF annotation file
         keep_temp (bool, optional): Whether to keep temporary files. Defaults to False.
         log_function (callable, optional): Function for logging messages. Defaults to print.
-    
+
     Returns:
         None: Creates output file with gene assignments
-        
+
     Output format:
         Tab-separated file with columns for interval coordinates, gene assignments,
         and overlap information.
@@ -525,13 +525,13 @@ def countfeature(
 ):
     """
     Generate gene expression count matrix from aligned BAM files.
-    
+
     This function processes aligned reads to create a gene expression matrix by:
     1. Converting BAM alignments to BED intervals
     2. Intersecting intervals with GTF gene annotations
     3. Counting reads per gene per barcode
     4. Applying quality filters and generating final expression matrix
-    
+
     Args:
         gtffile (str): Path to GTF gene annotation file
         threadnum (int): Number of threads for parallel processing
@@ -542,10 +542,10 @@ def countfeature(
         outputfolder (str): Output directory path
         qualityfilter (str): Quality filter specification (e.g., "25:0.75")
                            Format: "min_alignment_score:min_coverage_fraction"
-    
+
     Returns:
         None: Creates expression matrix files in the output directory
-        
+
     Creates:
         - expmat.bed: BED file with gene assignments
         - expmat.tsv: Gene expression count matrix

@@ -9,14 +9,14 @@ from .countfeature import genemat2tsv
 def sum_by_group(values, groups):
     """
     Calculate sum of values grouped by category.
-    
+
     Groups numeric values by their corresponding group identifiers and
     returns the sum for each group.
-    
+
     Args:
         values (iterable): Numeric values to be summed
         groups (iterable): Group identifiers corresponding to each value
-    
+
     Returns:
         dict_values: Collection of group sums
     """
@@ -29,20 +29,20 @@ def sum_by_group(values, groups):
 def removedims(inputtsv, outputtsv, filterlogratio):
     """
     Remove genes and barcodes with abnormal variance from expression matrix.
-    
+
     Filters out genes (rows) and barcodes (columns) that show extreme variance
     compared to the overall distribution. Uses log2 ratio thresholding to
     identify and remove outliers.
-    
+
     Args:
         inputtsv (str): Path to input expression matrix (TSV format)
         outputtsv (str): Path to output filtered expression matrix
         filterlogratio (str or float): Log2 ratio threshold for filtering
                                      (e.g., "2" means remove if variance > 4x median)
-    
+
     Returns:
         None: Creates filtered output file and a .rt file with removal statistics
-        
+
     Creates:
         - outputtsv: Filtered expression matrix
         - outputtsv.rt: Report of removed genes/barcodes
@@ -122,13 +122,13 @@ def filtMATbyRT(expmatgood, expmatbad, finalexpmat, filterlogratio=2):
 def featurefilter(gtffile, options, barcodes_file, filterlogratio, outputfolder):
     """
     Apply feature filtering to gene expression matrix.
-    
+
     Performs quality control filtering on the gene expression matrix by:
     1. Processing excluded features (if any)
     2. Merging standard and excluded expression data
     3. Removing genes/barcodes with abnormal variance patterns
     4. Generating final filtered expression matrices
-    
+
     Args:
         gtffile (str): Path to GTF gene annotation file
         options (str): Processing options:
@@ -136,10 +136,10 @@ def featurefilter(gtffile, options, barcodes_file, filterlogratio, outputfolder)
         barcodes_file (str): Path to barcode coordinate mapping file
         filterlogratio (str or float): Log2 ratio threshold for variance filtering
         outputfolder (str): Output directory path
-    
+
     Returns:
         None: Creates filtered expression matrices in the output directory
-        
+
     Creates:
         - finalexpmat.tsv: Final filtered gene expression matrix
         - expmat.tsv.excl: Expression matrix for excluded features

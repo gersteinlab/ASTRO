@@ -13,13 +13,13 @@ from .validgene import getvalidedgtf_parallel
 def ASTRO(**kwargs):
     """
     Main ASTRO pipeline function for spatial transcriptomics data processing.
-    
+
     This function orchestrates the complete ASTRO workflow including:
     1. Demultiplexing: Adapter trimming, UMI, and barcode splitting
     2. Genome Mapping: STAR alignment and duplicate removal
     3. Feature Counting: Gene expression quantification from GTF annotations
     4. Feature Filtering: Quality control and filtering of genes/barcodes
-    
+
     Args:
         **kwargs: Configuration parameters that can include:
             json_file_path (str): Path to JSON configuration file
@@ -28,7 +28,7 @@ def ASTRO(**kwargs):
             threadnum (int): Number of threads for parallel processing (default: 16)
             steps (int): Bitwise integer specifying which steps to run:
                 - 1: Demultiplexing
-                - 2: Genome Mapping  
+                - 2: Genome Mapping
                 - 4: Feature Counting and Filtering
                 - 7: All steps (1+2+4)
             outputfolder (str): Output directory path
@@ -43,10 +43,10 @@ def ASTRO(**kwargs):
             workflow (str): Pipeline version ('new' or 'old', default: 'new')
             barcodemode (str): Mode for barcode processing ('spatial' or 'singlecell')
             And many other optional parameters...
-    
+
     Returns:
         None: Results are written to the specified output directory
-        
+
     Raises:
         SystemExit: If required parameters are missing or invalid
     """

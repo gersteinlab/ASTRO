@@ -13,20 +13,20 @@ from collections import defaultdict, Counter
 def singleCutadapt(barcodestr, outputfile, remainfa, threadnum):
     """
     Process FASTQ files using cutadapt to extract barcodes and UMIs based on structure definition.
-    
+
     This function parses a barcode structure string and applies cutadapt operations
     to extract spatial barcodes and UMIs from sequencing reads. It handles both
     adapter-based and position-based extraction methods.
-    
+
     Args:
         barcodestr (str): Barcode structure definition string (e.g., "20_CGTTGGCTTCT_8")
         outputfile (str): Base path for output files (not directly used)
         remainfa (str): Path to input FASTQ file to process
         threadnum (str): Number of threads for cutadapt operations
-    
+
     Returns:
         None: Creates 'index.fastq' and 'UMI.fastq' files in the output directory
-        
+
     Raises:
         SystemExit: If barcode format is invalid or contains unexpected characters
     """
@@ -254,57 +254,67 @@ def Fqs2_1fq(fa, fb, fc, out, nproc, chunk_size, temp_dir):
             sys.stderr.write(f"Warning: Could not remove temp file {tf}: {e}\n")
 
 
-
-
 def filter_sam_NH(input_sam, output_fq):
-    with open(input_sam, 'r') as infile, open(output_fq, 'w') as outfile:
+    with open(input_sam, "r") as infile, open(output_fq, "w") as outfile:
         for line in infile:
-            if not line.startswith('@'):
-                line = line.split('\t')
+            if not line.startswith("@"):
+                line = line.split("\t")
                 spatialcode = line[2]
-                if spatialcode == '*':
+                if spatialcode == "*":
                     continue
-                if (int(line[1]) & 16) != 0: 
+                if (int(line[1]) & 16) != 0:
                     continue
                 for tag in line[11:]:
-                        if tag.startswith('NH:i:'):
-                            nh_value = int(tag.split(':', 2)[2])
-                        break
+                    if tag.startswith("NH:i:"):
+                        nh_value = int(tag.split(":", 2)[2])
+                    break
                 if nh_value >= 2:
                     continue
-                arrays = line[0].split('---', maxsplit=3)
+                arrays = line[0].split("---", maxsplit=3)
                 read_name = arrays[0]
-                read1seq  = arrays[1]
+                read1seq = arrays[1]
                 lenread1 = len(read1seq)
-                if lenread1 <  10:
+                if lenread1 < 10:
                     continue
                 UMIseq = arrays[2]
                 read1qual = arrays[3][:lenread1]
-                read_name2 = '@' + read_name + '|:_:|' + spatialcode + ':' + UMIseq
-                line = read_name2 + '\n' + read1seq + '\n' + '+' + '\n' + read1qual + '\n'
+                read_name2 = "@" + read_name + "|:_:|" + spatialcode + ":" + UMIseq
+                line = (
+                    read_name2 + "\n" + read1seq + "\n" + "+" + "\n" + read1qual + "\n"
+                )
                 outfile.write(line)
 
+
 def filter_sam_nbhd(input_sam, output_fq):
-    previousname = ''
-    previousloca = ''
+    previousname = ""
+    previousloca = ""
     wrongmultiple = 0
-    rdyline = ''
-    with open(input_sam, 'r') as infile, open(output_fq, 'w') as outfile:
+    rdyline = ""
+    with open(input_sam, "r") as infile, open(output_fq, "w") as outfile:
         for line in infile:
-            if not line.startswith('@'):
-                line = line.split('\t')
+            if not line.startswith("@"):
+                line = line.split("\t")
                 spatialcode = line[2]
-                arrays = line[0].split('---', maxsplit=3)
+                arrays = line[0].split("---", maxsplit=3)
                 read_name = arrays[0]
-                read1seq  = arrays[1]
+                read1seq = arrays[1]
                 lenread1 = len(read1seq)
-                if spatialcode == '*'  or (int(line[1]) & 16) != 0 or lenread1 <  10:
-                    thisline = ''
+                if spatialcode == "*" or (int(line[1]) & 16) != 0 or lenread1 < 10:
+                    thisline = ""
                 else:
                     UMIseq = arrays[2]
                     read1qual = arrays[3][:lenread1]
-                    read_name2 = '@' + read_name + '|:_:|' + spatialcode + ':' + UMIseq
-                    thisline = read_name2 + '\n' + read1seq + '\n' + '+' + '\n' + read1qual + '\n'
+                    read_name2 = "@" + read_name + "|:_:|" + spatialcode + ":" + UMIseq
+                    thisline = (
+                        read_name2
+                        + "\n"
+                        + read1seq
+                        + "\n"
+                        + "+"
+                        + "\n"
+                        + read1qual
+                        + "\n"
+                    )
                 if previousname != read_name:
                     if wrongmultiple == 0:
                         outfile.write(rdyline)
@@ -313,10 +323,12 @@ def filter_sam_nbhd(input_sam, output_fq):
                     previousname = read_name
                     previousloca = spatialcode
                 else:
-                    #if previousloca != spatialcode:
-                        wrongmultiple = 1
+                    # if previousloca != spatialcode:
+                    wrongmultiple = 1
         if wrongmultiple == 0:
             outfile.write(rdyline)
+
+
 def process_chunk(chunk_lines):
     read_count = set()
     read_delete = set()
@@ -480,13 +492,13 @@ def demultiplexing(
 ):
     """
     Perform demultiplexing of spatial transcriptomics sequencing data.
-    
+
     This function processes paired-end FASTQ files to:
     1. Extract and trim primers from R1 reads
     2. Extract UMIs and spatial barcodes from R2 reads
     3. Align barcodes to known spatial coordinates
     4. Generate demultiplexed FASTQ files for downstream analysis
-    
+
     Args:
         R1 (str): Path to R1 FASTQ file containing RNA sequences
         R2 (str): Path to R2 FASTQ file containing barcodes and UMIs
@@ -496,10 +508,10 @@ def demultiplexing(
         StructureBarcode (str): Barcode extraction structure definition
         threadnum (int): Number of threads for parallel processing
         outputfolder (str): Output directory path
-    
+
     Returns:
         None: Creates demultiplexed files in the output directory
-        
+
     Creates:
         - combine.fq: Combined demultiplexed reads
         - temps/: Directory with intermediate processing files
