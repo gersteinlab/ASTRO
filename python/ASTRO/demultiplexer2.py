@@ -145,12 +145,15 @@ def process_chunk(chunk_lines):
     read_delete = set()
     line = chunk_lines[0]
     read_name0 = line
-    read_count.add(read_name0)
     for line in chunk_lines[1:]:
         read_name = line
         if read_name == read_name0:
             read_delete.add(read_name)
-    read_count.add(read_name)
+        else:
+            read_count.add(read_name0)
+            read_name0 = read_name
+    if read_name0 not in read_delete:
+        read_count.add(read_name0)
     return read_count, read_delete
 
 

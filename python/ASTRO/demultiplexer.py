@@ -254,17 +254,83 @@ def Fqs2_1fq(fa, fb, fc, out, nproc, chunk_size, temp_dir):
             sys.stderr.write(f"Warning: Could not remove temp file {tf}: {e}\n")
 
 
+
+
+def filter_sam_NH(input_sam, output_fq):
+    with open(input_sam, 'r') as infile, open(output_fq, 'w') as outfile:
+        for line in infile:
+            if not line.startswith('@'):
+                line = line.split('\t')
+                spatialcode = line[2]
+                if spatialcode == '*':
+                    continue
+                if (int(line[1]) & 16) != 0: 
+                    continue
+                for tag in line[11:]:
+                        if tag.startswith('NH:i:'):
+                            nh_value = int(tag.split(':', 2)[2])
+                        break
+                if nh_value >= 2:
+                    continue
+                arrays = line[0].split('---', maxsplit=3)
+                read_name = arrays[0]
+                read1seq  = arrays[1]
+                lenread1 = len(read1seq)
+                if lenread1 <  10:
+                    continue
+                UMIseq = arrays[2]
+                read1qual = arrays[3][:lenread1]
+                read_name2 = '@' + read_name + '|:_:|' + spatialcode + ':' + UMIseq
+                line = read_name2 + '\n' + read1seq + '\n' + '+' + '\n' + read1qual + '\n'
+                outfile.write(line)
+
+def filter_sam_nbhd(input_sam, output_fq):
+    previousname = ''
+    previousloca = ''
+    wrongmultiple = 0
+    rdyline = ''
+    with open(input_sam, 'r') as infile, open(output_fq, 'w') as outfile:
+        for line in infile:
+            if not line.startswith('@'):
+                line = line.split('\t')
+                spatialcode = line[2]
+                arrays = line[0].split('---', maxsplit=3)
+                read_name = arrays[0]
+                read1seq  = arrays[1]
+                lenread1 = len(read1seq)
+                if spatialcode == '*'  or (int(line[1]) & 16) != 0 or lenread1 <  10:
+                    thisline = ''
+                else:
+                    UMIseq = arrays[2]
+                    read1qual = arrays[3][:lenread1]
+                    read_name2 = '@' + read_name + '|:_:|' + spatialcode + ':' + UMIseq
+                    thisline = read_name2 + '\n' + read1seq + '\n' + '+' + '\n' + read1qual + '\n'
+                if previousname != read_name:
+                    if wrongmultiple == 0:
+                        outfile.write(rdyline)
+                    rdyline = thisline
+                    wrongmultiple = 0
+                    previousname = read_name
+                    previousloca = spatialcode
+                else:
+                    #if previousloca != spatialcode:
+                        wrongmultiple = 1
+        if wrongmultiple == 0:
+            outfile.write(rdyline)
 def process_chunk(chunk_lines):
     read_count = set()
     read_delete = set()
     line = chunk_lines[0]
     read_name0 = line
-    read_count.add(read_name0)
     for line in chunk_lines[1:]:
         read_name = line
         if read_name == read_name0:
             read_delete.add(read_name)
-    read_count.add(read_name)
+        else:
+            read_count.add(read_name0)
+            read_name0 = read_name
+    if read_name0 not in read_delete:
+        read_count.add(read_name0)
     return read_count, read_delete
 
 
