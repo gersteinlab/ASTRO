@@ -302,7 +302,7 @@ def Fqs2_2fq(fa, fb, fb2, fc, out, nproc, chunk_size, temp_dir, lowlength = 20, 
     
 
 
-def demultiplexingPair(R1, R2, barcode_file, PrimerStructure1, StructureUMI, StructureBarcode, threadnum, outputfolder):
+def demultiplexingPair(R1, R2, barcode_file, PrimerStructure1, StructureUMI, StructureBarcode, threadnum, outputfolder, limitOutSAMoneReadBytes4barcodeMapping):
     os.makedirs(os.path.join(outputfolder, 'temps'), exist_ok=True)
     Cleanr1Fq1 = os.path.join(outputfolder, "temps/cleanr1fq1.fq")
     Cleanr1Fq2 = os.path.join(outputfolder, "temps/cleanr1fq2.fq")

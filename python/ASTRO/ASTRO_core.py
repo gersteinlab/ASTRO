@@ -91,6 +91,7 @@ def ASTRO (**kwargs):
                     StructureBarcode=args['StructureBarcode'],
                     threadnum=args['threadnum'], 
                     outputfolder=args['outputfolder'],
+                    limitOutSAMoneReadBytes4barcodeMapping=args['limitOutSAMoneReadBytes4barcodeMapping']
                 )
             else:
                 demultiplexing(
@@ -99,7 +100,8 @@ def ASTRO (**kwargs):
                     StructureUMI=args['StructureUMI'],
                     StructureBarcode=args['StructureBarcode'],
                     threadnum=args['threadnum'], 
-                    outputfolder=args['outputfolder']
+                    outputfolder=args['outputfolder'],
+                    limitOutSAMoneReadBytes4barcodeMapping=args['limitOutSAMoneReadBytes4barcodeMapping']
                 )
             args['barcode_file'] = bcfile
 
