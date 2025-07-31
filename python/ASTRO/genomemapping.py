@@ -355,11 +355,15 @@ def genomemapping(starref, gtffile, threadnum, options, outputfolder, STARparamf
         f.write("[genomemapping] start...\n")
 
     star_output_prefix = os.path.join(outputfolder, "STAR/temp")
+
     star_sorted_bam    = star_output_prefix + "Aligned.sortedByCoord.out.bam"
+    star_unsorted_bam    = star_output_prefix + "Aligned.out.bam"
+    
 
     if starref != "NA":
         if STARparamfile == "NA":
-            extra_star_params = [
+            if "M" in options:
+                extra_star_params = [
                 "--outSAMattributes", "NH", "HI", "AS", "nM", "NM",
                 "--genomeLoad", "NoSharedMemory",
                 "--limitOutSAMoneReadBytes", "200000000",
@@ -382,8 +386,33 @@ def genomemapping(starref, gtffile, threadnum, options, outputfolder, STARparamf
                 "--outFilterMismatchNoverReadLmax", "0.15",
                 "--alignIntronMin", "20",
                 "--alignIntronMax", "1000000",
-                "--alignEndsType", "Local"
-            ]
+                "--alignEndsType", "Local",
+                "--outBAMsortingBinsN", "200"
+                ]
+            else:
+                extra_star_params = [
+                "--outSAMattributes", "NH", "HI", "AS", "nM", "NM",
+                "--genomeLoad", "NoSharedMemory",
+                "--limitOutSAMoneReadBytes", "200000000",
+                "--outFilterMultimapNmax", "-1",
+                "--outFilterMultimapScoreRange", "0",
+                "--readMatesLengthsIn", "NotEqual",
+                "--outMultimapperOrder", "Random",
+                "--outSAMtype", "BAM", "Unsorted",
+                "--outSAMunmapped", "Within",
+                "--outSAMorder", "Paired",
+                "--outSAMprimaryFlag", "AllBestScore",
+                "--outSAMmultNmax", "-1",
+                "--outFilterType", "Normal",
+                "--outFilterScoreMinOverLread", "0",
+                "--alignSJDBoverhangMin", "30",
+                "--outFilterMatchNmin", "15",
+                "--outFilterMatchNminOverLread", "0",
+                "--outFilterMismatchNoverLmax", "0.1",
+                "--outFilterMismatchNoverReadLmax", "0.15",
+                "--alignIntronMin", "20",
+                "--alignIntronMax", "1000000",
+                "--alignEndsType", "Local"]
         else:
             with open(STARparamfile, 'r') as sf:
                 lines = [line.strip() for line in sf if line.strip()]
@@ -418,7 +447,7 @@ def genomemapping(starref, gtffile, threadnum, options, outputfolder, STARparamf
         my_logger("[genomemapping] Using alignment performance => dedup_bam_own()")
         temp_dir = os.path.join(outputfolder, "temps/")
         dedup_bam_own(
-            input_bam = star_sorted_bam,
+            input_bam = star_unsorted_bam,
             output_bam= filtered_bam,
             threads   = int(threadnum),
             temp_dir  = temp_dir,
