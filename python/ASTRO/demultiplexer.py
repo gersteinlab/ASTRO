@@ -237,15 +237,15 @@ def filter_sam_nbhd(input_sam, output_fq):
                 spatialcode = line[2]
                 arrays = line[0].split('---', maxsplit=3)
                 read_name = arrays[0]
-                read1seq  = arrays[1]
-                lenread1 = len(read1seq)
+                read2seq  = arrays[1]
+                lenread1 = len(read2seq)
                 if spatialcode == '*'  or (int(line[1]) & 16) != 0 or lenread1 <  10:
                     thisline = ''
                 else:
                     UMIseq = arrays[2]
-                    read1qual = arrays[3][:lenread1]
+                    read2qual = arrays[3][:lenread1]
                     read_name2 = '@' + read_name + '|:_:|' + spatialcode + ':' + UMIseq
-                    thisline = read_name2 + '\n' + read1seq + '\n' + '+' + '\n' + read1qual + '\n'
+                    thisline = read_name2 + '\n' + read2seq + '\n' + '+' + '\n' + read2qual + '\n'
                 if previousname != read_name:
                     if wrongmultiple == 0:
                         outfile.write(rdyline)
@@ -400,10 +400,10 @@ def filter_sam(input_sam, output_fq, num_processes, chunk_size):
     #        if chunk:
     #            yield (chunk_index, chunk)
 
-def demultiplexing(R1, R2, barcode_file, PrimerStructure1, StructureUMI, StructureBarcode, threadnum, outputfolder, limitOutSAMoneReadBytes4barcodeMapping):
+def demultiplexing(read1,read2, barcode_file, PrimerStructure1, StructureUMI, StructureBarcode, threadnum, outputfolder, limitOutSAMoneReadBytes4barcodeMapping):
     os.makedirs(os.path.join(outputfolder, 'temps'), exist_ok=True)
-    Cleanr1Fq1 = os.path.join(outputfolder, "temps/cleanr1fq1.fq")
-    Cleanr1Fq2 = os.path.join(outputfolder, "temps/cleanr1fq2.fq")
+    CleanFq1 = os.path.join(outputfolder, "temps/CleanFq1.fq")
+    CleanFq2 = os.path.join(outputfolder, "temps/CleanFq2.fq")
     CombineFq = os.path.join(outputfolder, "combine.fq")
     barcode_db_fa = os.path.join(outputfolder, "temps/barcode_xy.fasta")
     barcode_db_path = os.path.join(outputfolder, "temps/barcode_db")
@@ -415,9 +415,9 @@ def demultiplexing(R1, R2, barcode_file, PrimerStructure1, StructureUMI, Structu
     suffixread1 = PrimerStructure1.rsplit('_', 1)[-1]
     
     threadnum = str(threadnum)
-    subprocess.run([ "cutadapt", "-e", "0.25", "-a", suffixread1, "--times", "4", "-g", prefixread1, "-j", threadnum, "-o", Cleanr1Fq1, "-p", Cleanr1Fq2, R1, R2])
-    singleCutadapt(StructureUMI,UMI_fq,Cleanr1Fq2,threadnum)
-    singleCutadapt(StructureBarcode,index_fq,Cleanr1Fq2,threadnum)
+    subprocess.run([ "cutadapt", "-e", "0.25", "-a", suffixread1, "--times", "4", "-g", prefixread1, "-j", threadnum, "-o", CleanFq2, "-p", CleanFq1, read2, read1])
+    singleCutadapt(StructureUMI,UMI_fq,CleanFq1,threadnum)
+    singleCutadapt(StructureBarcode,index_fq,CleanFq1,threadnum)
     with open(barcode_file, 'r') as barcodes_in, open(barcode_db_fa, 'w') as barcode_db_file:
       for line in barcodes_in:
           fields = line.strip().split('\t')
@@ -427,7 +427,7 @@ def demultiplexing(R1, R2, barcode_file, PrimerStructure1, StructureUMI, Structu
     subprocess.run([ "STAR", "--runMode", "genomeGenerate", "--runThreadN", threadnum, "--genomeDir", barcode_db_path, "--genomeFastaFiles", barcode_db_fa, "--genomeSAindexNbases", "7" ,"--limitGenomeGenerateRAM", "50000000000"])
     
     
-    Fqs2_1fq(index_fq,Cleanr1Fq1,UMI_fq,CombineFq,16,1000000,temps_path)
+    Fqs2_1fq(index_fq,CleanFq2,UMI_fq,CombineFq,16,1000000,temps_path)
     if limitOutSAMoneReadBytes4barcodeMapping != 'NA':
         limitOutSAMoneReadBytes4barcodeMapping = ['--limitOutSAMoneReadBytes', str(limitOutSAMoneReadBytes4barcodeMapping)]
     else:
@@ -467,11 +467,11 @@ def demultiplexing(R1, R2, barcode_file, PrimerStructure1, StructureUMI, Structu
     os.rmdir(barcode_mapping_dir) 
 
 
-def get_barcode_for_single_cell(R1, R2, barcode_file, PrimerStructure1, StructureUMI, StructureBarcode, threadnum, outputfolder,barcode_threshold=100,barcodelength=0):
+def get_barcode_for_single_cell(read1, read2, barcode_file, PrimerStructure1, StructureUMI, StructureBarcode, threadnum, outputfolder,barcode_threshold=100,barcodelength=0):
     barcode_threshold = int(barcode_threshold)
     os.makedirs(os.path.join(outputfolder, 'temps'), exist_ok=True)
-    Cleanr1Fq1 = os.path.join(outputfolder, "temps/cleanr1fq1.fq")
-    Cleanr1Fq2 = os.path.join(outputfolder, "temps/cleanr1fq2.fq")
+    CleanFq1 = os.path.join(outputfolder, "temps/cleanfq1.fq")
+    CleanFq2 = os.path.join(outputfolder, "temps/cleanfq2.fq")
     CombineFq = os.path.join(outputfolder, "combine.fq")
     barcode_db_fa = os.path.join(outputfolder, "temps/barcode_xy.fasta")
     barcode_db_path = os.path.join(outputfolder, "temps/barcode_db")
@@ -484,9 +484,9 @@ def get_barcode_for_single_cell(R1, R2, barcode_file, PrimerStructure1, Structur
     suffixread1 = PrimerStructure1.rsplit('_', 1)[-1]
     
     threadnum = str(threadnum)
-    subprocess.run([ "cutadapt", "-e", "0.25", "-a", suffixread1, "--times", "4", "-g", prefixread1, "-j", threadnum, "-o", Cleanr1Fq1, "-p", Cleanr1Fq2, R1, R2])
-    singleCutadapt(StructureUMI,UMI_fq,Cleanr1Fq2,threadnum)
-    singleCutadapt(StructureBarcode,index_fq,Cleanr1Fq2,threadnum)
+    subprocess.run([ "cutadapt", "-e", "0.25", "-a", suffixread1, "--times", "4", "-g", prefixread1, "-j", threadnum, "-o", CleanFq2, "-p", CleanFq1, read2, read1])
+    singleCutadapt(StructureUMI,UMI_fq,CleanFq1,threadnum)
+    singleCutadapt(StructureBarcode,index_fq,CleanFq1,threadnum)
 
     bar_counter = Counter()
 

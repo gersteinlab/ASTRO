@@ -302,11 +302,11 @@ def Fqs2_2fq(fa, fb, fb2, fc, out, nproc, chunk_size, temp_dir, lowlength = 20, 
     
 
 
-def demultiplexingPair(R1, R2, barcode_file, PrimerStructure1, StructureUMI, StructureBarcode, threadnum, outputfolder, limitOutSAMoneReadBytes4barcodeMapping):
+def demultiplexingPair(read1, read2, barcode_file, PrimerStructure1, StructureUMI, StructureBarcode, threadnum, outputfolder, limitOutSAMoneReadBytes4barcodeMapping):
     os.makedirs(os.path.join(outputfolder, 'temps'), exist_ok=True)
-    Cleanr1Fq1 = os.path.join(outputfolder, "temps/cleanr1fq1.fq")
-    Cleanr1Fq2 = os.path.join(outputfolder, "temps/cleanr1fq2.fq")
-    RemainFq2 = os.path.join(outputfolder, "temps/remainfq2.fq")
+    CleanFq1 = os.path.join(outputfolder, "temps/CleanFq1.fq")
+    CleanFq2 = os.path.join(outputfolder, "temps/CleanFq2.fq")
+    RemainFq1 = os.path.join(outputfolder, "temps/remainfq1.fq")
     CombineFq1 = os.path.join(outputfolder, "combine1.fq")
     CombineFq2 = os.path.join(outputfolder, "combine2.fq")
     barcode_db_fa = os.path.join(outputfolder, "temps/barcode_xy.fasta")
@@ -321,16 +321,16 @@ def demultiplexingPair(R1, R2, barcode_file, PrimerStructure1, StructureUMI, Str
     if PrimerStructure1 != "NA":
         prefixread1 = PrimerStructure1.split('_', 1)[0]
         suffixread1 = PrimerStructure1.rsplit('_', 1)[-1]
-        subprocess.run([ "cutadapt", "-e", "0.25", "-a", suffixread1, "--times", "4", "-g", prefixread1, "-j", threadnum, "-o", Cleanr1Fq1, "-p", Cleanr1Fq2, R1, R2])
+        subprocess.run([ "cutadapt", "-e", "0.25", "-a", suffixread1, "--times", "4", "-g", prefixread1, "-j", threadnum, "-o", CleanFq2, "-p", CleanFq1, read2, read1])
     else:
-        Cleanr1Fq1 = R1
-        Cleanr1Fq2 = R2
+        CleanFq1 = read1
+        CleanFq2 = read2
 
 
     
-    singleCutadapt(StructureUMI, UMI_fq, Cleanr1Fq2, threadnum)
-    singleCutadapt(StructureBarcode, index_fq, Cleanr1Fq2, threadnum, 2, RemainFq2)
-    Fqs2_2fq(index_fq, Cleanr1Fq1, RemainFq2, UMI_fq, CombineFq1, threadnum, 1000000, temps_path)
+    singleCutadapt(StructureUMI, UMI_fq, CleanFq1, threadnum)
+    singleCutadapt(StructureBarcode, index_fq, CleanFq1, threadnum, 2, RemainFq1)
+    Fqs2_2fq(index_fq, CleanFq1, RemainFq1, UMI_fq, CombineFq1, threadnum, 1000000, temps_path)
 
     with open(barcode_file, 'r') as barcodes_in, open(barcode_db_fa, 'w') as barcode_db_file:
       for line in barcodes_in:
