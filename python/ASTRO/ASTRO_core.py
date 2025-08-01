@@ -19,7 +19,18 @@ def ASTRO (**kwargs):
         with open(json_file_path, "r") as file:
             data = json.load(file)
     else:
-        data = {}   
+        data = {}
+
+    if data.get('barcode_read') and data.get('R1'):
+        sys.exit("barcode_read and R1 are same things, duplicated settings")
+    if data.get('barcode_read'):
+        data['R1'] = data.pop('barcode_read')
+
+    if data.get('transcript_read') and data.get('R2'):
+        sys.exit("transcript_read and R2 are same things, duplicated settings")
+    if data.get('transcript_read'):
+        data['R2'] = data.pop('transcript_read')
+
     
     args['options'] = args.get('options') or data.get('options') or ""
     args['threadnum'] = args.get('threadnum') or data.get('threadnum') or 16
@@ -49,7 +60,7 @@ def ASTRO (**kwargs):
         if args['barcodemode'] == "singlecell":
             user_bc_file = args.get('barcode_file') or data.get('barcode_file') or "notavailable"
 
-            final_bc_file = get_barcode_for_single_cell(R1=args['R1'],R2=args['R2'],barcode_file=user_bc_file,PrimerStructure1=args['PrimerStructure1'],StructureUMI=args['StructureUMI'],StructureBarcode=args['StructureBarcode'],
+            final_bc_file = get_barcode_for_single_cell(read1=args['R1'],read2=args['R2'],barcode_file=user_bc_file,PrimerStructure1=args['PrimerStructure1'],StructureUMI=args['StructureUMI'],StructureBarcode=args['StructureBarcode'],
                 threadnum=args['threadnum'],
                 outputfolder=args['outputfolder'],
                 barcode_threshold=args['barcode_threshold'],
@@ -58,7 +69,7 @@ def ASTRO (**kwargs):
             if args['ReadLayout'] == "pairedend":
                 from .demultiplexer2 import demultiplexingPair
                 demultiplexingPair(
-                    R1=args['R1'],R2=args['R2'], barcode_file=final_bc_file, 
+                    read1=args['R1'],read2=args['R2'], barcode_file=final_bc_file, 
                     PrimerStructure1=args['PrimerStructure1'],
                     StructureUMI=args['StructureUMI'],
                     StructureBarcode=args['StructureBarcode'],
@@ -68,7 +79,7 @@ def ASTRO (**kwargs):
                 )
             else:
                 demultiplexing(
-                    R1=args['R1'],R2=args['R2'], barcode_file=final_bc_file, 
+                    read1=args['R1'],read2=args['R2'], barcode_file=final_bc_file, 
                     PrimerStructure1=args['PrimerStructure1'],
                     StructureUMI=args['StructureUMI'],
                     StructureBarcode=args['StructureBarcode'],
@@ -85,7 +96,7 @@ def ASTRO (**kwargs):
             if args['ReadLayout'] == "pairedend":
                 from .demultiplexer2 import demultiplexingPair
                 demultiplexingPair(
-                    R1=args['R1'],R2=args['R2'], barcode_file=bcfile, 
+                    read1=args['R1'],read2=args['R2'], barcode_file=bcfile, 
                     PrimerStructure1=args['PrimerStructure1'],
                     StructureUMI=args['StructureUMI'],
                     StructureBarcode=args['StructureBarcode'],
@@ -95,7 +106,7 @@ def ASTRO (**kwargs):
                 )
             else:
                 demultiplexing(
-                    R1=args['R1'],R2=args['R2'], barcode_file=bcfile, 
+                    read1=args['R1'],read2=args['R2'], barcode_file=bcfile, 
                     PrimerStructure1=args['PrimerStructure1'],
                     StructureUMI=args['StructureUMI'],
                     StructureBarcode=args['StructureBarcode'],

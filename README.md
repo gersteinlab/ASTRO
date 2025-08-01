@@ -1,24 +1,24 @@
 The usage instructions for the ASTRO Python package are as followings.  
 
-1.Functional Overview  
+# 1.Functional Overview  
 Demultiplexing: Adapter trimming, UMI, and Barcode splitting.  
 Genome Mapping: Uses STAR to align reads to the genome and optionally removes duplicate reads using either samtools markdup or a custom deduplication module.  
 Feature Counting: Calculates gene expression from alignment results based on GTF annotation files and outputs an expression matrix.  
 Feature Filtering: Filters out low-quality or abnormal genes/barcodes based on user-defined thresholds.  
 
-2.Installation Guide  
+# 2.Installation Guide  
 External dependencies: ASTRO requires the following external tools to function- STAR, bedtools, samtools, and cutadapt. If you have Python 3.6+ installed locally, follow these steps to set it up.  
 Install from source repository or compressed package:  
-2.1 Clone the repository:  
+## 2.1 Clone the repository:  
 git clone git@github.com:gersteinlab/ASTRO.git  
-2.2 Enter the directory named "python":  
+## 2.2 Enter the directory named "python":  
 cd python  
-2.3 Install dependencies and build/install:  
+## 2.3 Install dependencies and build/install:  
 pip install -e .  
-2.4 Check if the installation was successful (If you see the help documentation, the installation is complete.):  
+## 2.4 Check if the installation was successful (If you see the help documentation, the installation is complete.):  
 ASTRO --help  
 filtmatbyrt --help  
-2.5 After installation, the following executable scripts will be available in the command line:  
+## 2.5 After installation, the following executable scripts will be available in the command line:  
 ASTRO: Main pipeline entry point.  
 filtmatbyrt: Independent row-column filtering/merging tool.  
 
@@ -28,7 +28,7 @@ Alternative: the Docker image is hosted on Docker Hub and can be downloaded usin
 docker pull zhiyuanchu/astro:v1.0
 ```
 
-3.Parameter Description
+# 3.Parameter Description
 The ASTRO script accepts parameters via the command line or a JSON file. The main parameters are listed below. Certain parameters are only required for specific steps. If these steps are executed (--steps control) but their parameters are missing, the program will perform a runtime check and exit with an error.
 <table>
   <thead>
@@ -223,7 +223,7 @@ The ASTRO script accepts parameters via the command line or a JSON file. The mai
   </tbody>
 </table>
 
-3.1 Parameter Priority  
+## 3.1 Parameter Priority  
 ASTRO can receive parameters from the command line or a JSON file. JSON parameters can be specified as positional arguments (json_file_path1) or via --json_file_path. Priority is as follows:
 
 1st: Command Line Parameters: Overrides JSON values if explicitly provided.  
@@ -247,13 +247,13 @@ json_file_path1: If --json_file_path is not provided, the program reads the posi
 3rd:Default Values  
 Used if neither command-line parameters nor JSON specify the value.
 
-3.2 Key Modes Explanation  
+## 3.2 Key Modes Explanation  
 (1) hard mode (H)  
 If options include H, it means that when a single read aligns to multiple genes, it will no longer only take the first gene but will record all aligned genes as a multi-gene form, separated by a hyphen.  
 (2) M decides which way is used for remove depulicate reads.
 If options include M, samtools markdup will be used to mark and remove duplicate reads.  If M is not included, the built-in ASTRO deduplication logic will be used: This logic relies on UMIs and barcodes to determine duplicates and uses alignment score for filtering.
 
-3.3 Quality Filtering and Additional Tool: filtmatbyrt  
+## 3.3 Quality Filtering and Additional Tool: filtmatbyrt  
 This is a standalone script. If the removeByDim parameter is set to True, it will be automatically called in step 4 to perform row and column variance filtering, and the output will be saved as finalexpmat.tsv. If removeByDim is set to False, the script can also be run independently to further filter or merge an already generated expression matrix.  
 Command example:  
 filtmatbyrt good_expmat.tsv bad_expmat.tsv final_expmat.tsv 2  
@@ -261,15 +261,15 @@ Here, good_expmat.tsv represents a "high-quality" expression matrix, bad_expmat.
 It can also be used with parameter syntax:  
 filtmatbyrt --expmatgood good_expmat.tsv --expmatbad bad_expmat.tsv --finalexpmat final_expmat.tsv --filterlogratio 2
 
-4.A Simple Example
+# 4.A Simple Example
 
-4.1 Assume the following files are prepared:  
+## 4.1 Assume the following files are prepared:  
 R1.fq, R2.fq: Input sequencing reads.  
 spatial_barcodes.txt: Records coordinates and barcode sequences.  
 StarIndex/: STAR genome index directory.  
 hsa.no_piRNA.gtf: Gene annotation file.  
 
-4.2 Create the following JSON file (parameter.json):  
+## 4.2 Create the following JSON file (parameter.json):  
 {  
   "R1": "R1.fq",  
   "R2": "R2.fq",  
@@ -284,10 +284,10 @@ hsa.no_piRNA.gtf: Gene annotation file.
   "starref": "StarIndex/"  
 }
 
-4.3 Run the command:
+## 4.3 Run the command:
 ASTRO parameter.json
 
-5. Single-Cell Mode
+# 5. Single-Cell Mode
 
 In the conventional spatial transcriptomics (spatial) mode, ASTRO requires a `barcode_file` that contains at least three columns (barcode sequence, X coordinate, and Y coordinate).
 
@@ -299,7 +299,8 @@ If a barcode file is provided in single-cell mode, ASTRO will treat that file as
 
 In single-cell mode, Step 4 (Feature Filtering) by default only creates the basic expression matrix and does not perform further row/column variance filtering. If needed, you can run that manually afterward or configure the relevant parameters.
 
-6.1 Symbol meanings in StructureBarcode / StructureUMI
+# Some further explantation
+## 6 Symbol meanings in StructureBarcode / StructureUMI
 
 A colon (:) means concatenating multiple segments. 
 
@@ -309,7 +310,7 @@ A colon (:) means concatenating multiple segments.
 
 “TTCTCGCATCT...ATCCACGTGCTTGA”Means we take what lies between two stable (known) sequences.Here, the left boundary is TTCTCGCATCT and the right boundary is ATCCACGTGCTTGA, so we extract whatever is in between them.
 
-6.2 Two ways to write (or “point to”) barcode/UMI locations in R2
+## 6.2 Two ways to write (or “point to”) barcode/UMI locations in R2
 
 **Method A**: Use explicit numeric positions
 
@@ -352,7 +353,7 @@ meaning we look for that fixed adapter on the 5' end, and once found, we keep th
 
 This approach gives flexibility in cases where the read length or positions vary slightly, as long as the bounding sequences remain identifiable.
 
-7. Genes2Check Advanced Filtering
+# 7. Genes2Check Advanced Filtering
 
 If your experiment includes some suspicious genes (for example, piRNA or miRNA), you can list their gene IDs or gene names in a text file (e.g., genes2check.txt) and specify this file in the ASTRO parameters using --genes2check genes2check.txt (or by adding "genes2check": "genes2check.txt" in the JSON). When running Step 4 (Feature Counting), ASTRO will call its built-in advanced detection logic (getvalidedgtf_parallel) to determine whether to discard these suspicious genes based on their over-enrichment in corresponding control regions. If anomalous enrichment is detected, those entries will be removed before formal counting, thereby reducing false positives and yielding a more accurate gene expression matrix.
 

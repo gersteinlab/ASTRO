@@ -9,8 +9,8 @@ def main():
     
     parser.add_argument("json_file_path1", nargs="?", default=None, help="json file for the input")
     parser.add_argument("--json_file_path", required = False, help="json file for the input")
-    parser.add_argument("--R1", help="barcode read, fastq files containing input RNA")
-    parser.add_argument("--R2", help="transcript read, fastq files including barcode information")
+    parser.add_argument("--R1", '--barcode_read', dest='R1', help="barcode read, fastq files containing input RNA")
+    parser.add_argument("--R2", '--transcript_read', dest='R2', help="transcript read, fastq files including barcode information")
     parser.add_argument("--barcode_file", help="files including spatial barcodes")
     parser.add_argument("--outputfolder", help="output folder")
     parser.add_argument("--starref", help="STAR referebce folder")

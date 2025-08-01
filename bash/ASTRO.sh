@@ -1,19 +1,3 @@
-#!/bin/bash
-#SBATCH -p pi_gerstein -A gerstein
-#SBATCH --job-name=Fq2Mat%j
-#SBATCH --output=Fq2Mat-%j.txt
-#SBATCH --ntasks=1 --cpus-per-task=16
-#SBATCH --mem=85g
-#SBATCH --time=2-02:00:00
-#SBATCH --mail-type=END
-
-
-
-
-module load miniconda
-conda activate py3_env
-
-
 OUTPUT=$4
 OUTPUT="${OUTPUT%/}"
 mkdir -p $OUTPUT
