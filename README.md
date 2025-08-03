@@ -360,3 +360,6 @@ If your experiment includes some suspicious genes (for example, piRNA or miRNA),
 This feature relies on the BAM file (STAR/tempfiltered.bam) and its index (which will be created automatically if absent) generated in the previous step. It then checks each gene interval in a multithreaded manner. The detection algorithm uses statistical tests (such as Poisson tests), and if it concludes that a gene interval is significantly higher than the background, it deems the interval likely to be junk or a spurious mapping. You can customize the list of genes in genes2check.txt according to your needs (e.g., including lncRNA, miRNA, or piRNA).
 
 Note: The gene names (or IDs) in genes2check.txt should match the entries in the ninth column of your GTF file. 
+
+# 8. legecy bash version
+For previous users who want to continue using the bash version of ASTRO, we have put the old bash version in *bash* folder. However, the legcay bash version is deprecated and we strongly suggest to move to the python version.
