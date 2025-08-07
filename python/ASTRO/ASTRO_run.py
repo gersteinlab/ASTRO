@@ -18,6 +18,7 @@ def main():
     parser.add_argument("--PrimerStructure1", help="structure for R1, like AAGCAGTGGTATCAACGCAGAGTGAATGGG_b_A{10}N{150}") 
     parser.add_argument("--StructureUMI", help="structure for UMI, like CAAGCGTTGGCTTCTCGCATCT_10") 
     parser.add_argument("--StructureBarcode", help="structure for UMI, like 20_ATCCACGTGCTTGAGAGGCCAGAGCATTCG:ATCCACGTGCTTGAGAGGCCAGAGCATTCG...GTGGCCGATGTTTCGCATCGGCGTACGACT")
+    parser.add_argument("--barcodemode", choices=["singlecell", "spatial"], help="Barcode processing mode: 'singlecell' or 'spatial'")
     parser.add_argument("--barcodeposition", default="NA")
     parser.add_argument("--barcodelengthrange", default="NA")
     parser.add_argument("--threadnum", required = False)
