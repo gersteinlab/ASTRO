@@ -46,7 +46,7 @@ def ASTRO (**kwargs):
 
     os.makedirs(args['outputfolder'], exist_ok=True)
 
-    args['barcodemode'] = "singlecell" if args.get('singlecell') or data.get('singlecell') else "spatial"
+    args['barcodemode'] = "singlecell" if args.get('barcodemode')=="singlecell" or data.get('barcodemode')=="singlecell" else "spatial"
 
     
     if args['steps'] & 1:
