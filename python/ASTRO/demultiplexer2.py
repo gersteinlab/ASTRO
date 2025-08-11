@@ -338,7 +338,7 @@ def demultiplexingPair(read1, read2, barcode_file, PrimerStructure1, StructureUM
           header = f">{fields[1]}_{fields[2]}"
           sequence = fields[0]
           barcode_db_file.write(f"{header}\n{sequence}\n")
-    subprocess.run([ "STAR", "--runMode", "genomeGenerate", "--runThreadN", threadnum, "--genomeDir", barcode_db_path, "--genomeFastaFiles", barcode_db_fa, "--genomeSAindexNbases", "7" ,"--limitGenomeGenerateRAM", "50000000000"])
+    subprocess.run([ "STAR", "--runMode", "genomeGenerate", "--runThreadN", threadnum, "--genomeDir", barcode_db_path, "--genomeFastaFiles", barcode_db_fa, "--genomeSAindexNbases", "7" ,"--limitGenomeGenerateRAM", "60000000000"])
     
     
     if limitOutSAMoneReadBytes4barcodeMapping != 'NA':
