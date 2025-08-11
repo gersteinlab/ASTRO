@@ -424,7 +424,7 @@ def demultiplexing(read1,read2, barcode_file, PrimerStructure1, StructureUMI, St
           header = f">{fields[1]}_{fields[2]}"
           sequence = fields[0]
           barcode_db_file.write(f"{header}\n{sequence}\n")
-    subprocess.run([ "STAR", "--runMode", "genomeGenerate", "--runThreadN", threadnum, "--genomeDir", barcode_db_path, "--genomeFastaFiles", barcode_db_fa, "--genomeSAindexNbases", "7" ,"--limitGenomeGenerateRAM", "50000000000"])
+    subprocess.run([ "STAR", "--runMode", "genomeGenerate", "--runThreadN", threadnum, "--genomeDir", barcode_db_path, "--genomeFastaFiles", barcode_db_fa, "--genomeSAindexNbases", "7" ,"--limitGenomeGenerateRAM", "60000000000"])
     
     
     Fqs2_1fq(index_fq,CleanFq2,UMI_fq,CombineFq,16,1000000,temps_path)
