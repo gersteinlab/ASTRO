@@ -46,14 +46,14 @@ The ASTRO script accepts parameters via the command line or a JSON file. The mai
       <td>Yes</td>
       <td>Step 1</td>
       <td>None</td>
-      <td>FASTQ file 1 containing main RNA sequences</td>
+      <td>FASTQ file containing spatial barcode and UMI information</td>
     </tr>
     <tr>
       <td>R2</td>
       <td>Yes</td>
       <td>Step 1</td>
       <td>None</td>
-      <td>FASTQ file 2 containing spatial barcode and UMI information</td>
+      <td>FASTQ file containing main RNA sequences</td>
     </tr>
     <tr>
       <td>barcode_file</td>
