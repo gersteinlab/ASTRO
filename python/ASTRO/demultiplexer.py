@@ -129,7 +129,10 @@ def merge_chunk_to_tempfile(chunk_index, linesA, linesB, linesC, temp_dir):
                 if a1 != b1 or a1 != c1:
                     raise ValueError(f"Read names do not match: {a1} {b1} {c1}")
 
-
+                # filter out empty reads
+                if len(a2) == 0:
+                    continue
+                
                 new_read_name = f"@{chunk_index}_{ii}---{b2}---{c2}---{b4}{c4}"
                 ii += 1
 
