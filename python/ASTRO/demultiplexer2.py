@@ -215,8 +215,11 @@ def merge_chunk_to_tempfilePair(chunk_index, linesA, linesB, linesB2, linesC, lo
                 c1 = c1.split(' ')[0]
                 if a1 != b1 or a1 != c1:
                     raise ValueError(f"Read names do not match: {a1} {b1} {c1}")
-
-
+                
+                # filter out empty reads
+                if len(a2) == 0:
+                    continue
+                    
                 new_read_name = f"@{chunk_index}_{ii}--{b2}_{b22}--{c2}--{b4}{b24}"
                 ii += 1
 
