@@ -37,7 +37,18 @@ def singleCutadapt(barcodestr,outputfile,remainfa,threadnum):
                         out_handle.write("@%s\n%s\n+\n%s\n" % (title, new_seq, new_qual))
         os.remove(filein)
         os.rename(filein+'.temp', filein)
-
+    def cutfastq_abs(srcfile, outfile, skip, keep):
+        with (gzip.open(srcfile, "rt") if srcfile.endswith('.gz') else open(srcfile, "rt")) as in_handle:
+            with open(outfile, "w") as out_handle:
+                for title, seq, qual in simple_fastq_iterator(in_handle):
+                    s = int(skip); k = int(keep); e = s + k
+                    if s >= len(seq):
+                        new_seq  = ""
+                        new_qual = ""
+                    else:
+                        new_seq  = seq[s:e]
+                        new_qual = qual[s:e]
+                    out_handle.write(f"@{title}\n{new_seq}\n+\n{new_qual}\n")
     def combineFqs(outputfile,fqs):
         iterators0 = [gzip.open(file_path, "rt") if file_path.endswith('.gz') else open(file_path) for file_path in fqs]
         iterators = [simple_fastq_iterator(file) for file in iterators0]
@@ -65,22 +76,30 @@ def singleCutadapt(barcodestr,outputfile,remainfa,threadnum):
     ii = 0
     linkfqs = []
     for stri in array4barcodes:
-        array4input = re.split('_',stri)
+        array4input = re.split('_', stri)
         tempout = outputfile + '.temp' + str(ii)
         if len(array4input) == 2:
-            if re.search(r'^[0-9]*$', array4input[0]):
+            if re.fullmatch(r'\d+', array4input[0]) and re.fullmatch(r'\d+', array4input[1]):
+                cutfastq_abs(remainfa, tempout, int(array4input[0]), int(array4input[1]))
+                linkfqs.append(tempout)
+
+            # original behaviors kept: N_ADAPTER or ADAPTER_N
+            elif re.fullmatch(r'\d+', array4input[0]):
                 outputcommand = ['cutadapt'] + [customsetting] + ['-a'] + [array4input[1]] + ['-e'] + ['0.25'] + ['-o'] + [tempout] + [remainfa]
                 subprocess.run(' '.join(outputcommand), shell=True)
-                cutfastq(tempout,False,int(array4input[0]))
+                cutfastq(tempout, False, int(array4input[0]))
                 linkfqs.append(tempout)
-            elif re.search(r'^[0-9]*$', array4input[1]):
+
+            elif re.fullmatch(r'\d+', array4input[1]):
                 outputcommand = ['cutadapt'] + [customsetting] + ['-g'] + [array4input[0]] + ['-e'] + ['0.25'] + ['-o'] + [tempout] + [remainfa]
                 subprocess.run(' '.join(outputcommand), shell=True)
-                cutfastq(tempout,True,int(array4input[1]))
+                cutfastq(tempout, True, int(array4input[1]))
                 linkfqs.append(tempout)
+
             else:
                 print(stri)
                 exit('Error: wrong barcode format: order error')
+
         elif len(array4input) == 1:
             outputcommand = ['cutadapt'] + [customsetting] + ['-g'] + [array4input[0]] + ['-e'] + ['0.25'] + ['-o'] + [tempout] + [remainfa]
             subprocess.run(' '.join(outputcommand), shell=True)
@@ -89,7 +108,6 @@ def singleCutadapt(barcodestr,outputfile,remainfa,threadnum):
             print(stri)
             exit('Error: wrong barcode format: order error')
         ii = ii + 1
-
 
     if len(linkfqs) >= 2:
         combineFqs(outputfile,linkfqs)
@@ -413,12 +431,22 @@ def demultiplexing(read1,read2, barcode_file, PrimerStructure1, StructureUMI, St
     index_fq = os.path.join(outputfolder, "temps/index.fastq")
     UMI_fq = os.path.join(outputfolder, "temps/UMI.fastq")
     temps_path = os.path.join(outputfolder, "temps/") 
-    
-    prefixread1 = PrimerStructure1.split('_', 1)[0]
-    suffixread1 = PrimerStructure1.rsplit('_', 1)[-1]
-    
+
     threadnum = str(threadnum)
-    subprocess.run([ "cutadapt", "-e", "0.25", "-a", suffixread1, "--times", "4", "-g", prefixread1, "-j", threadnum, "-o", CleanFq2, "-p", CleanFq1, read2, read1])
+    if PrimerStructure1 != "NA":
+        prefixread1 = PrimerStructure1.split('_', 1)[0]
+        suffixread1 = PrimerStructure1.rsplit('_', 1)[-1]
+        subprocess.run([
+            "cutadapt", "-e", "0.25",
+            "-a", suffixread1, "--times", "4",
+            "-g", prefixread1,
+            "-j", threadnum,
+            "-o", CleanFq2, "-p", CleanFq1,
+            read2, read1
+        ])
+    else:
+        CleanFq1 = read1
+        CleanFq2 = read2
     singleCutadapt(StructureUMI,UMI_fq,CleanFq1,threadnum)
     singleCutadapt(StructureBarcode,index_fq,CleanFq1,threadnum)
     with open(barcode_file, 'r') as barcodes_in, open(barcode_db_fa, 'w') as barcode_db_file:
