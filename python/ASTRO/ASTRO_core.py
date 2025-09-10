@@ -177,8 +177,9 @@ def ASTRO (**kwargs):
                 if removeByDim:
                     from .featurefilter import featurefilter
                     args['filterlogratio'] = args.get('filterlogratio') or data.get('filterlogratio') or 2
-                    gtffile = args.get('gtffile') or data.get('gtffile')
-                    featurefilter(args['gtffile'], args['options'], args['barcode_file'], args['filterlogratio'], args['outputfolder'])
-
+                    #gtffile = args.get('gtffile') or data.get('gtffile')
+                    #featurefilter(args['gtffile'], args['options'], args['barcode_file'], args['filterlogratio'], args['outputfolder'])
+                    featurefilter(usedgtf, args['options'], args['barcode_file'], args['filterlogratio'], args['outputfolder'])
+                    
     with open(os.path.join(args['outputfolder'],"input.json"),"w") as jf:
         json.dump(args, jf, indent=4)
