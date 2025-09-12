@@ -25,7 +25,7 @@ mkdir -p gencode
 wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M34/gencode.vM34.annotation.gtf.gz
 gunzip gencode.vM34.annotation.gtf.gz
 mv gencode.vM34.annotation.gtf.gz gencode
-cat gencode/gencode.vM34.annotation.gtf | egrep -v '^#' | awk '/Gm55767|Gm56322|Gm56480|Gm56181|Gm55795|Gm56246|Gm56393|Gm55481|Gm54376|Gm54851/ {gsub(/misc_RNA/,  "Y_RNA"); print; next} 1' > gencode/gencode.vM34.formod.gtf
+cat gencode/gencode.vM34.annotation.gtf | egrep -v '^#' | awk '/Gm55767|Gm56322|Gm56480|Gm56181|Gm55795|Gm56246|Gm56393|Gm55481|Gm54376|Gm54851/ {gsub(/misc_RNA/,  "Y_RNA"); print; next} 1' | grep -v 'gene_type "miRNA";' > gencode/gencode.vM34.formod.gtf
 
 ########################################
 ########################################
@@ -39,8 +39,11 @@ cat gencode/gencode.vM34.annotation.gtf | egrep -v '^#' | awk '/Gm55767|Gm56322|
 ########################################
 mkdir -p mirbase/
 wget https://www.mirbase.org/download/mmu.gff3
+wget https://hgdownload.soe.ucsc.edu/goldenPath/mm10/liftOver/mm10ToMm39.over.chain.gz
+mv mm10ToMm39.over.chain.gz mirbase/
 mv mmu.gff3 mirbase/
-cat mirbase/mmu.gff3 | grep -v '#' | sed s/$'\t'miRNA_primary_transcript$'\t'/$'\t'exon$'\t'/ | sed s/$'\t'miRNA$'\t'/$'\t'exon$'\t'/ | sed -e 's/ID=[^;]*;/ID=miRNA;/' > mirbase/mmu.formod.gtf 
+liftOver -gff mirbase/mmu.gff3 mirbase/mm10ToMm39.over.chain.gz mirbase/mmu.mm39.gff3 mirbase/mmu.mm39unmapped.gff3 # warning does not influence this task
+cat mirbase/mmu.mm39.gff3 | grep -v '#' | sed s/$'\t'miRNA_primary_transcript$'\t'/$'\t'exon$'\t'/ | sed s/$'\t'miRNA$'\t'/$'\t'exon$'\t'/ | sed -e 's/ID=[^;]*;/ID=miRNA;/' > mirbase/mmu.formod.gtf 
 ########################################
 ########################################
 

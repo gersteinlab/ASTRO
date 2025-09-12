@@ -67,5 +67,5 @@ gtf_data = gtf_data.drop(columns='gene_types')
 gtf_data = gtf_data.drop(columns='gene_names')
 
 #things located to transcript will be intron
-gtf_data.iloc[:, 8] = gtf_data.iloc[:, 8].replace("__transcript", "__intron")
+gtf_data.iloc[:, 8] = gtf_data.iloc[:, 8].replace("__transcript", "__intron", regex=True)
 gtf_data.to_csv(outputfile, sep="\t", index=False, header=False)
