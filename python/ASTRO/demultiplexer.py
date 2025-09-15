@@ -468,6 +468,7 @@ def demultiplexing(read1,read2, barcode_file, PrimerStructure1, StructureUMI, St
     "--runThreadN", threadnum,
     "--genomeDir", barcode_db_path,
     "--readFilesIn", CombineFq,
+    "--readNameSeparator", "space",
     "--outFileNamePrefix", os.path.join(outputfolder, "temps/barcodeMapping/temp"),
     "--outSAMtype", "SAM",
     "--outFilterMismatchNmax", "3",
