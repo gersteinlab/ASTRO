@@ -162,6 +162,85 @@ def merge_chunk_to_tempfile(chunk_index, linesA, linesB, linesC, temp_dir):
                 tf.write(f"{new_line1}\n{new_line2}\n{new_line3}\n{new_line4}\n")
 
         return tf.name
+
+def parse4barcodeposition(barcodeposition):
+    pos, length = 0, 0
+
+    if m := re.fullmatch(r'([0-9_]+)b', barcodeposition):
+        parts = m.group(1).split('_')
+        pos = int(parts[0])-1 if len(parts) > 1 else 0
+        length = int(parts[-1])+pos
+    elif m := re.fullmatch(r'b([0-9_]+)', barcodeposition):
+        parts = m.group(1).split('_')
+        pos = -int(parts[0])
+        length = int(parts[-1])-int(parts[0]) if len(parts) > 1 else None
+    else:
+        raise ValueError(f"wrong format in barcodeposition: {barcodeposition}")
+    return pos, length
+def merge_chunk_to_tempfile_to2files(chunk_index, linesA, linesB, linesC, temp_dir, barcodepositionvector, barcodelengthmin, barcodelengthmax, barcode_dict):
+        
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, dir=temp_dir, prefix=f"chunk_{chunk_index}_", suffix=".fastq") as tf, tempfile.NamedTemporaryFile(mode='w', delete=False, dir=temp_dir, prefix=f"chunk_{chunk_index}_", suffix=".fastq") as tf2:
+            ii = 0
+            for i in range(0, len(linesA), 4):
+                a1 = linesA[i].rstrip('\n')   # @readA
+                a2 = linesA[i+1].rstrip('\n') # SEQ
+                if len(a2) >= int(barcodelengthmin) and len(a2) <= int(barcodelengthmax):
+                    continue
+                shouldbebarcode = a2[barcodepositionvector[0]:barcodepositionvector[1]]
+                
+                if shouldbebarcode in barcode_dict:
+                    spatialcode = barcode_dict[shouldbebarcode]
+                    b1, b2, b3, b4 = [line.rstrip('\n') for line in linesB[i:i+4]]
+                    if len(b2) < 10:
+                        continue
+                    c1, c2, c3, c4 = [line.rstrip('\n') for line in linesC[i:i+4]]
+                    a1 = a1.split(' ')[0]; b1 = b1.split(' ')[0]; c1 = c1.split(' ')[0]
+                    if a1 != b1 or a1 != c1:
+                        raise ValueError(f"Read names do not match: {a1} {b1} {c1}")
+                    read_name = '@' + f"{chunk_index}_{ii}" + '|:_:|' + spatialcode + ':' + c2
+                    
+                    new_line1, new_line2, new_line3, new_line4 = read_name, b2, b3, b4
+                    tf2.write(f"{new_line1}\n{new_line2}\n{new_line3}\n{new_line4}\n")
+                    
+                    ii += 1
+                    continue
+
+                a3 = linesA[i+2].rstrip('\n') # +
+                a4 = linesA[i+3].rstrip('\n') # QUAL
+
+
+                b1 = linesB[i].rstrip('\n')
+                b2 = linesB[i+1].rstrip('\n')
+                b3 = linesB[i+2].rstrip('\n')
+                b4 = linesB[i+3].rstrip('\n')
+
+
+                c1 = linesC[i].rstrip('\n')
+                c2 = linesC[i+1].rstrip('\n')
+                c3 = linesC[i+2].rstrip('\n')
+                c4 = linesC[i+3].rstrip('\n')
+
+                a1 = a1.split(' ')[0]
+                b1 = b1.split(' ')[0]
+                c1 = c1.split(' ')[0]
+                if a1 != b1 or a1 != c1:
+                    raise ValueError(f"Read names do not match: {a1} {b1} {c1}")
+
+                # filter out empty reads
+                if len(a2) == 0:
+                    continue
+                
+                new_read_name = f"@{chunk_index}_{ii}---{b2}---{c2}---{b4}{c4}"
+                ii += 1
+
+                new_line1 = new_read_name
+                new_line2 = a2
+                new_line3 = a3
+                new_line4 = a4
+
+                tf.write(f"{new_line1}\n{new_line2}\n{new_line3}\n{new_line4}\n")
+
+        return tf.name, tf2.name
 def read_in_chunks(fA, fB, fC, chunk_num_reads):
     chunk_index = 0
     while True:
@@ -181,20 +260,16 @@ def read_in_chunks(fA, fB, fC, chunk_num_reads):
             break
         yield (chunk_index, linesA, linesB, linesC)
         chunk_index += 1
-def Fqs2_1fq(fa, fb, fc, out, nproc, chunk_size, temp_dir):
+def Fqs2_1fq(fa, fb, fc, out, nproc, chunk_size, temp_dir, barcodeposition='NA',barcodelengthrange='NA',barcode_dict={}):
 
         pool = mp.Pool(processes=nproc)
-
-        temp_files = []  
-        with open(fa, 'r') as fA, open(fb, 'r') as fB, open(fc, 'r') as fC:
-            async_results = []
-            for (chunk_index, linesA, linesB, linesC) in read_in_chunks(fA, fB, fC, chunk_num_reads=chunk_size):
-                res = pool.apply_async(
-                    merge_chunk_to_tempfile,
-                    (chunk_index, linesA, linesB, linesC, temp_dir)
-                )
+        if barcodeposition == 'NA':
+            temp_files = []   
+            with open(fa, 'r') as fA, open(fb, 'r') as fB, open(fc, 'r') as fC:
+                async_results = []
+                for (chunk_index, linesA, linesB, linesC) in read_in_chunks(fA, fB, fC, chunk_num_reads=chunk_size):
+                    res = pool.apply_async(merge_chunk_to_tempfile, (chunk_index, linesA, linesB, linesC, temp_dir))
                 async_results.append(res)
-
             pool.close()
 
             for r in async_results:
@@ -202,7 +277,40 @@ def Fqs2_1fq(fa, fb, fc, out, nproc, chunk_size, temp_dir):
                 temp_files.append(tempfile_path)
 
             pool.join()
+        else:
+            if barcodelengthrange and barcodelengthrange != 'NA':
+                barcodelengthmin, barcodelengthmax = barcodelengthrange.split('_')[0:2]
+            else:
+                barcodelengthmin = 1
+                barcodelengthmax = 10000
+            temp_files = []
+            temp_files_final = []
+            barcodeposition = parse4barcodeposition(barcodeposition)
+            with open(fa, 'r') as fA, open(fb, 'r') as fB, open(fc, 'r') as fC:
+                async_results = []
+                for (chunk_index, linesA, linesB, linesC) in read_in_chunks(fA, fB, fC, chunk_num_reads=chunk_size):
+                    res = pool.apply_async(merge_chunk_to_tempfile_to2files, (chunk_index, linesA, linesB, linesC, temp_dir, barcodeposition, barcodelengthmin, barcodelengthmax, barcode_dict))
+                async_results.append(res)
+            pool.close()
 
+            for r in async_results:
+                tempfile_path1, tempfile_path2 = r.get()
+                temp_files.append(tempfile_path1)
+                temp_files_final.append(tempfile_path2)
+
+            pool.join()
+
+            with open(out+'0', 'w') as fw:
+               for tf in temp_files_final:
+                    with open(tf, 'r') as f:
+                        for line in f:
+                            fw.write(line)
+        
+            for tf in temp_files_final:
+                try:
+                    os.remove(tf)
+                except Exception as e:
+                    sys.stderr.write(f"Warning: Could not remove temp file {tf}: {e}\n")
         with open(out, 'w') as fw:
             for tf in temp_files:
                 with open(tf, 'r') as f:
@@ -214,6 +322,8 @@ def Fqs2_1fq(fa, fb, fc, out, nproc, chunk_size, temp_dir):
                 os.remove(tf)
             except Exception as e:
                 sys.stderr.write(f"Warning: Could not remove temp file {tf}: {e}\n")
+        
+        
 
 
 
@@ -421,7 +531,8 @@ def filter_sam(input_sam, output_fq, num_processes, chunk_size):
     #        if chunk:
     #            yield (chunk_index, chunk)
 
-def demultiplexing(read1,read2, barcode_file, PrimerStructure1, StructureUMI, StructureBarcode, threadnum, outputfolder, limitOutSAMoneReadBytes4barcodeMapping):
+def demultiplexing(read1,read2, barcode_file, PrimerStructure1, StructureUMI, StructureBarcode, threadnum, outputfolder, limitOutSAMoneReadBytes4barcodeMapping, barcodeposition='NA', barcodelengthrange='NA'):
+    
     os.makedirs(os.path.join(outputfolder, 'temps'), exist_ok=True)
     CleanFq1 = os.path.join(outputfolder, "temps/CleanFq1.fq")
     CleanFq2 = os.path.join(outputfolder, "temps/CleanFq2.fq")
@@ -449,16 +560,18 @@ def demultiplexing(read1,read2, barcode_file, PrimerStructure1, StructureUMI, St
         CleanFq2 = read2
     singleCutadapt(StructureUMI,UMI_fq,CleanFq1,threadnum)
     singleCutadapt(StructureBarcode,index_fq,CleanFq1,threadnum)
+    barcode_dict = {}
     with open(barcode_file, 'r') as barcodes_in, open(barcode_db_fa, 'w') as barcode_db_file:
       for line in barcodes_in:
           fields = line.strip().split('\t')
-          header = f">{fields[1]}_{fields[2]}"
+          header = f"{fields[1]}_{fields[2]}"
           sequence = fields[0]
-          barcode_db_file.write(f"{header}\n{sequence}\n")
+          barcode_db_file.write(f">{header}\n{sequence}\n")
+          barcode_dict[sequence] = header
+    
+    Fqs2_1fq(index_fq,CleanFq2,UMI_fq,CombineFq,16,1000000,temps_path,barcodeposition,barcodelengthrange,barcode_dict)
     subprocess.run([ "STAR", "--runMode", "genomeGenerate", "--runThreadN", threadnum, "--genomeDir", barcode_db_path, "--genomeFastaFiles", barcode_db_fa, "--genomeSAindexNbases", "7" ,"--limitGenomeGenerateRAM", "60000000000"])
     
-    
-    Fqs2_1fq(index_fq,CleanFq2,UMI_fq,CombineFq,16,1000000,temps_path)
     if limitOutSAMoneReadBytes4barcodeMapping != 'NA':
         limitOutSAMoneReadBytes4barcodeMapping = ['--limitOutSAMoneReadBytes', str(limitOutSAMoneReadBytes4barcodeMapping)]
     else:
@@ -489,6 +602,15 @@ def demultiplexing(read1,read2, barcode_file, PrimerStructure1, StructureUMI, St
     
     filter_sam_nbhd(os.path.join(outputfolder, "temps/barcodeMapping/tempAligned.out.sam"), CombineFq)
     #filter_sam(os.path.join(outputfolder, "temps/barcodeMapping/tempAligned.out.sam"), CombineFq, int(threadnum), 1000000)
+
+    if os.path.isfile(CombineFq + '0'):
+        import shutil
+        tmp_file = CombineFq + ".tmp"
+        with open(tmp_file, 'wb') as out, open(CombineFq, 'rb') as f1, open(CombineFq + '0', 'rb') as f2:
+            shutil.copyfileobj(f1, out)
+            shutil.copyfileobj(f2, out)
+        os.replace(tmp_file, CombineFq)  
+        #os.remove(CombineFq + '0') 
     
     os.replace(os.path.join(outputfolder, "temps/barcodeMapping/tempLog.final.out"),os.path.join(outputfolder, "barcodeMapping.out"))
     barcode_mapping_dir = os.path.join(outputfolder, "temps/barcodeMapping/")

@@ -40,7 +40,9 @@ def ASTRO (**kwargs):
     args['STARparamfile4genome'] = args.get('STARparamfile4genome') or data.get('STARparamfile4genome') or 'NA'
     args['genes2check'] = args.get('genes2check') or data.get('genes2check') or False
     args['barcode_threshold'] = int(args.get('barcode_threshold') or data.get('barcode_threshold') or 100)
-    args['barcodelength'] = int(args.get('barcodelength') or data.get('barcodelength') or 0) 
+    args['barcodelength'] = int(args.get('barcodelength') or data.get('barcodelength') or 0)
+    args['barcodeposition']  = args.get('barcodeposition') or data.get('barcodeposition') or "NA"
+    args['barcodelengthrange']  = args.get('barcodelengthrange') or data.get('barcodelengthrange') or "NA"
     args['ReadLayout']  = args.get('ReadLayout') or data.get('ReadLayout') or "singleend"
     args['limitOutSAMoneReadBytes4barcodeMapping']  = args.get('limitOutSAMoneReadBytes4barcodeMapping') or data.get('limitOutSAMoneReadBytes4barcodeMapping') or "NA"
 
@@ -75,7 +77,7 @@ def ASTRO (**kwargs):
                     StructureBarcode=args['StructureBarcode'],
                     threadnum=args['threadnum'], 
                     outputfolder=args['outputfolder'],
-                    limitOutSAMoneReadBytes4barcodeMapping=args['limitOutSAMoneReadBytes4barcodeMapping']
+                    limitOutSAMoneReadBytes4barcodeMapping=args['limitOutSAMoneReadBytes4barcodeMapping'],
                 )
             else:
                 demultiplexing(
@@ -85,7 +87,9 @@ def ASTRO (**kwargs):
                     StructureBarcode=args['StructureBarcode'],
                     threadnum=args['threadnum'], 
                     outputfolder=args['outputfolder'],
-                    limitOutSAMoneReadBytes4barcodeMapping=args['limitOutSAMoneReadBytes4barcodeMapping']
+                    limitOutSAMoneReadBytes4barcodeMapping=args['limitOutSAMoneReadBytes4barcodeMapping'],
+                    barcodeposition=args['barcodeposition'],
+                    barcodelengthrange=args['barcodelengthrange']
                 )
             
            
@@ -112,6 +116,8 @@ def ASTRO (**kwargs):
                     StructureBarcode=args['StructureBarcode'],
                     threadnum=args['threadnum'], 
                     outputfolder=args['outputfolder'],
+                    barcodeposition=args['barcodeposition'],
+                    barcodelengthrange=args['barcodelengthrange'],
                     limitOutSAMoneReadBytes4barcodeMapping=args['limitOutSAMoneReadBytes4barcodeMapping']
                 )
             args['barcode_file'] = bcfile
