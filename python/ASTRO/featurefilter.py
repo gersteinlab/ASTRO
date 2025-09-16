@@ -3,7 +3,12 @@ import sys
 from collections import defaultdict
 from statistics import variance
 from math import log2
-from .countfeature import genemat2tsv
+from .countfeature import featurebed2mattsv
+import logging
+
+for h in logging.root.handlers[:]:
+        logging.root.removeHandler(h)
+
 
 
 def sum_by_group(values, groups):
@@ -84,6 +89,15 @@ def filtMATbyRT(expmatgood, expmatbad, finalexpmat, filterlogratio = 2):
 
 
 def featurefilter(gtffile, options, barcodes_file, filterlogratio, outputfolder):
+
+    for h in logging.root.handlers[:]:
+        logging.root.removeHandler(h)
+
+    logfilename = os.path.join(outputfolder, ".logs/featurefilter.log")
+    os.makedirs(os.path.dirname(logfilename), exist_ok=True)
+    logging.basicConfig(filename=logfilename, filemode="w", level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+    logging.info(f"\nMatrix Stat of finalexpmat.tsv:\n")
     do_easy_mode = 1
     if 'H' in options:
         do_easy_mode = 0
@@ -91,7 +105,7 @@ def featurefilter(gtffile, options, barcodes_file, filterlogratio, outputfolder)
     expmattsvexcel = os.path.join(outputfolder, "expmat.tsv.excl")
     expmattsv = os.path.join(outputfolder, "expmat.tsv")
     finalexpmattsv = os.path.join(outputfolder, "finalexpmat.tsv")
-    genemat2tsv(input_file=expmatbedexcl, output_file=expmattsvexcel, barcodes_file=barcodes_file, gtf_file=gtffile, filter_str="0:0", easy_mode=do_easy_mode)
+    featurebed2mattsv(input_file=expmatbedexcl, output_file=expmattsvexcel, barcodes_file=barcodes_file, gtf_file=gtffile, filter_str="0:0", easy_mode=do_easy_mode)
     filtMATbyRT(expmattsv, expmattsvexcel, finalexpmattsv, filterlogratio)
     if "auto_barcode.tsv" in barcodes_file:
     

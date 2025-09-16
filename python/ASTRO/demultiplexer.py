@@ -8,6 +8,7 @@ import multiprocessing as mp
 import sys
 import tempfile
 from collections import defaultdict, Counter
+import logging
 
 
 def singleCutadapt(barcodestr,outputfile,remainfa,threadnum):
@@ -86,13 +87,15 @@ def singleCutadapt(barcodestr,outputfile,remainfa,threadnum):
             # original behaviors kept: N_ADAPTER or ADAPTER_N
             elif re.fullmatch(r'\d+', array4input[0]):
                 outputcommand = ['cutadapt'] + [customsetting] + ['-a'] + [array4input[1]] + ['-e'] + ['0.25'] + ['-o'] + [tempout] + [remainfa]
-                subprocess.run(' '.join(outputcommand), shell=True)
+                result4out = subprocess.run(' '.join(outputcommand), shell=True, text=True, capture_output=True, check=True)
+                logging.info("\n%s", result4out.stdout)
                 cutfastq(tempout, False, int(array4input[0]))
                 linkfqs.append(tempout)
 
             elif re.fullmatch(r'\d+', array4input[1]):
                 outputcommand = ['cutadapt'] + [customsetting] + ['-g'] + [array4input[0]] + ['-e'] + ['0.25'] + ['-o'] + [tempout] + [remainfa]
-                subprocess.run(' '.join(outputcommand), shell=True)
+                result4out = subprocess.run(' '.join(outputcommand), shell=True, text=True, capture_output=True, check=True)
+                logging.info("\n%s", result4out.stdout)
                 cutfastq(tempout, True, int(array4input[1]))
                 linkfqs.append(tempout)
 
@@ -102,7 +105,8 @@ def singleCutadapt(barcodestr,outputfile,remainfa,threadnum):
 
         elif len(array4input) == 1:
             outputcommand = ['cutadapt'] + [customsetting] + ['-g'] + [array4input[0]] + ['-e'] + ['0.25'] + ['-o'] + [tempout] + [remainfa]
-            subprocess.run(' '.join(outputcommand), shell=True)
+            result4out = subprocess.run(' '.join(outputcommand), shell=True, text=True, capture_output=True, check=True)
+            logging.info("\n%s", result4out.stdout)
             linkfqs.append(tempout)
         else:
             print(stri)
@@ -541,25 +545,36 @@ def demultiplexing(read1,read2, barcode_file, PrimerStructure1, StructureUMI, St
     barcode_db_path = os.path.join(outputfolder, "temps/barcode_db")
     index_fq = os.path.join(outputfolder, "temps/index.fastq")
     UMI_fq = os.path.join(outputfolder, "temps/UMI.fastq")
-    temps_path = os.path.join(outputfolder, "temps/") 
+    temps_path = os.path.join(outputfolder, "temps/")
+
+    for h in logging.root.handlers[:]:
+        logging.root.removeHandler(h)
+
+    logfilename = os.path.join(outputfolder, ".logs/demultiplexing.log")
+    os.makedirs(os.path.dirname(logfilename), exist_ok=True)
+    logging.basicConfig(filename=logfilename, filemode="w", level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
     threadnum = str(threadnum)
     if PrimerStructure1 != "NA":
         prefixread1 = PrimerStructure1.split('_', 1)[0]
         suffixread1 = PrimerStructure1.rsplit('_', 1)[-1]
-        subprocess.run([
+        result4out = subprocess.run([
             "cutadapt", "-e", "0.25",
             "-a", suffixread1, "--times", "4",
             "-g", prefixread1,
             "-j", threadnum,
             "-o", CleanFq2, "-p", CleanFq1,
-            read2, read1
-        ])
+            read2, read1], text=True, capture_output=True, check=True)
+        logging.info("cutadapt for mRNA read log:\n%s", result4out.stdout)
     else:
         CleanFq1 = read1
         CleanFq2 = read2
+    
+    logging.info("cutadapt for UMI log:\n")
     singleCutadapt(StructureUMI,UMI_fq,CleanFq1,threadnum)
+    logging.info("cutadapt for barcode log:\n")
     singleCutadapt(StructureBarcode,index_fq,CleanFq1,threadnum)
+    
     barcode_dict = {}
     with open(barcode_file, 'r') as barcodes_in, open(barcode_db_fa, 'w') as barcode_db_file:
       for line in barcodes_in:
@@ -570,13 +585,15 @@ def demultiplexing(read1,read2, barcode_file, PrimerStructure1, StructureUMI, St
           barcode_dict[sequence] = header
     
     Fqs2_1fq(index_fq,CleanFq2,UMI_fq,CombineFq,16,1000000,temps_path,barcodeposition,barcodelengthrange,barcode_dict)
-    subprocess.run([ "STAR", "--runMode", "genomeGenerate", "--runThreadN", threadnum, "--genomeDir", barcode_db_path, "--genomeFastaFiles", barcode_db_fa, "--genomeSAindexNbases", "7" ,"--limitGenomeGenerateRAM", "60000000000"])
-    
+    result4out = subprocess.run([ "STAR", "--runMode", "genomeGenerate", "--runThreadN", threadnum, "--genomeDir", barcode_db_path, "--genomeFastaFiles", barcode_db_fa, "--genomeSAindexNbases", "7" ,"--limitGenomeGenerateRAM", "60000000000"], text=True, capture_output=True, check=True)
+    logging.info("STAR genomeGenerate for barcode reference:\n%s", result4out.stdout)
+
     if limitOutSAMoneReadBytes4barcodeMapping != 'NA':
         limitOutSAMoneReadBytes4barcodeMapping = ['--limitOutSAMoneReadBytes', str(limitOutSAMoneReadBytes4barcodeMapping)]
     else:
         limitOutSAMoneReadBytes4barcodeMapping=[]
-    subprocess.run([
+
+    result4out = subprocess.run([
     "STAR",
     "--runThreadN", threadnum,
     "--genomeDir", barcode_db_path,
@@ -598,8 +615,8 @@ def demultiplexing(read1,read2, barcode_file, PrimerStructure1, StructureUMI, St
     "--outFilterMatchNminOverLread", "0",
     "--outFilterMismatchNoverLmax", "0.7",
     "--outFilterMismatchNoverReadLmax", "0.7"
-    ]+limitOutSAMoneReadBytes4barcodeMapping)
-    
+    ]+limitOutSAMoneReadBytes4barcodeMapping, text=True, capture_output=True, check=True)
+    logging.info("STAR genomeGenerate for barcode mapping:\n%s", result4out.stdout)
     filter_sam_nbhd(os.path.join(outputfolder, "temps/barcodeMapping/tempAligned.out.sam"), CombineFq)
     #filter_sam(os.path.join(outputfolder, "temps/barcodeMapping/tempAligned.out.sam"), CombineFq, int(threadnum), 1000000)
 
@@ -609,10 +626,13 @@ def demultiplexing(read1,read2, barcode_file, PrimerStructure1, StructureUMI, St
         with open(tmp_file, 'wb') as out, open(CombineFq, 'rb') as f1, open(CombineFq + '0', 'rb') as f2:
             shutil.copyfileobj(f1, out)
             shutil.copyfileobj(f2, out)
-        os.replace(tmp_file, CombineFq)  
-        #os.remove(CombineFq + '0') 
+        os.replace(tmp_file, CombineFq)
+        os.remove(CombineFq + '0') 
     
-    os.replace(os.path.join(outputfolder, "temps/barcodeMapping/tempLog.final.out"),os.path.join(outputfolder, "barcodeMapping.out"))
+    with open(os.path.join(outputfolder, "temps/barcodeMapping/tempLog.final.out"), "r") as f:
+        content4log = f.read()
+    logging.info("STAR Log.final.out for barcode mapping:\n%s", content4log)
+
     barcode_mapping_dir = os.path.join(outputfolder, "temps/barcodeMapping/")
     for file_name in os.listdir(barcode_mapping_dir):
         file_path = os.path.join(barcode_mapping_dir, file_name)

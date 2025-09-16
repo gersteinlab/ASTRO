@@ -187,5 +187,37 @@ def ASTRO (**kwargs):
                     #featurefilter(args['gtffile'], args['options'], args['barcode_file'], args['filterlogratio'], args['outputfolder'])
                     featurefilter(usedgtf, args['options'], args['barcode_file'], args['filterlogratio'], args['outputfolder'])
                     
-    with open(os.path.join(args['outputfolder'],"input.json"),"w") as jf:
-        json.dump(args, jf, indent=4)
+                    
+
+
+    with open(os.path.join(args['outputfolder'],"ASTRO.log.out"),"w") as logout:
+        logout.write("input json information:\n")
+        json.dump(args, logout, indent=4)
+
+        demultiplexerlog = os.path.join(args['outputfolder'], ".logs/demultiplexing.log")
+        genomemappiglog = os.path.join(args['outputfolder'], ".logs/genomemapping.log")
+        countfeaturelog = os.path.join(args['outputfolder'], ".logs/countfeature.log")
+        featurefilterlog = os.path.join(args['outputfolder'], ".logs/featurefilter.log")
+
+
+        if os.path.isfile(demultiplexerlog):
+            logout.write(f"\n###############################\n###############################\n###############################\n[STEP] demultiplexer step start\n###############################\n###############################\n###############################\n")
+            with open(demultiplexerlog, "r") as f:
+                content = f.read()
+                logout.write(f"\n{content}\n")
+        if os.path.isfile(genomemappiglog):
+            logout.write(f"\n###############################\n###############################\n###############################\n[STEP] genomemappig step start\n###############################\n###############################\n###############################\n")
+            with open(genomemappiglog, "r") as f:
+                content = f.read()
+                logout.write(f"\n{content}\n")
+        if os.path.isfile(countfeaturelog):
+            logout.write(f"\n###############################\n###############################\n###############################\n[STEP] countfeature step start\n###############################\n###############################\n###############################\n")
+            with open(countfeaturelog, "r") as f:
+                content = f.read()
+                logout.write(f"\n{content}\n")
+        if os.path.isfile(featurefilterlog):
+            logout.write(f"\n###############################\n###############################\n###############################\n[STEP] featurefilter step start\n###############################\n###############################\n###############################\n")
+            with open(featurefilterlog, "r") as f:
+                content = f.read()
+                logout.write(f"\n{content}\n")
+        

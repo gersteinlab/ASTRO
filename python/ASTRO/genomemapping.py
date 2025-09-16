@@ -6,6 +6,7 @@ import sys
 import subprocess
 import multiprocessing as mp
 import tempfile
+import logging
 
 def star_align(genome_dir, read_files_in, out_prefix, run_thread_n=16, gtf_file=None, extra_params=None):
 
@@ -26,10 +27,11 @@ def star_align(genome_dir, read_files_in, out_prefix, run_thread_n=16, gtf_file=
         "--runThreadN", str(run_thread_n),
     ] + gtf_part + extra_params
 
-    subprocess.run(cmd, check=True)
+    result4out = subprocess.run(cmd, text=True, capture_output=True, check=True)
+    logging.info("STAR for genome mapping:\n%s", result4out.stdout)
 
 
-def dedup_bam_samtools_markdup_2step(input_bam, output_bam, threads=1, log_function=print):
+def dedup_bam_samtools_markdup_2step(input_bam, output_bam, threads=1):
     markdup_bam = output_bam + ".markdup.bam"
     regex = r'.+\|:_:\|(.+)$'
     markdup_cmd = [
@@ -41,14 +43,14 @@ def dedup_bam_samtools_markdup_2step(input_bam, output_bam, threads=1, log_funct
         input_bam,
         markdup_bam
     ]
-    log_function(f"[dedup_bam_2step] Step1 => {' '.join(markdup_cmd)}")
+    logging.info(f"[dedup_bam_2step] Step1 => {' '.join(markdup_cmd)}")
     ret = subprocess.run(markdup_cmd)
     if ret.returncode != 0:
         raise RuntimeError(f"[Error] samtools markdup failed on {input_bam}")
 
     temp_sam = output_bam + ".temp.sam"
     view_cmd_1 = ["samtools", "view", "-h", markdup_bam]
-    log_function(f"[dedup_bam_2step] Step2 => {' '.join(view_cmd_1)}")
+    logging.info(f"[dedup_bam_2step] Step2 => {' '.join(view_cmd_1)}")
 
     with open(temp_sam, "w") as out_sam:
         ret2 = subprocess.run(view_cmd_1, stdout=out_sam)
@@ -113,7 +115,7 @@ def dedup_bam_samtools_markdup_2step(input_bam, output_bam, threads=1, log_funct
             f_out.write("\t".join(fields) + "\n")
 
     view_cmd_2 = ["samtools", "view", "-b", "-o", output_bam, final_sam]
-    log_function(f"[dedup_bam_2step] Step3 => {' '.join(view_cmd_2)}")
+    logging.info(f"[dedup_bam_2step] Step3 => {' '.join(view_cmd_2)}")
     ret3 = subprocess.run(view_cmd_2)
     if ret3.returncode != 0:
         raise RuntimeError("[Error] samtools view final_sam => output_bam failed")
@@ -122,7 +124,7 @@ def dedup_bam_samtools_markdup_2step(input_bam, output_bam, threads=1, log_funct
         if os.path.exists(tmpf):
             os.remove(tmpf)
 
-    log_function(f"[dedup_bam_2step] Done => {output_bam}")
+    logging.info(f"[dedup_bam_2step] Done => {output_bam}")
 
 def dedup_chunk(chunk_index, lines, temp_dir):    
     global_index = 0
@@ -262,10 +264,10 @@ def parallel_dedup(cmd_collated_view, cmd_final_write, nproc=4, chunk_size=10000
             os.remove(tf)
         except Exception as e:
             sys.stderr.write(f"Warning: Could not remove temp file {tf}: {e}\n")
-    print("[INFO] parallel_sam_view done.")
+    logging.info("[INFO] parallel_sam_view done.")
 
 
-def dedup_bam_own(input_bam, output_bam, threads=1, temp_dir = '/tmp', chunk_size=100000, log_function=print):
+def dedup_bam_own(input_bam, output_bam, threads=1, temp_dir = '/tmp', chunk_size=100000):
     filtered_bam = f"{input_bam}.mappedOnly.bam"
     cmd_filter = [
         "samtools", "view",
@@ -273,7 +275,7 @@ def dedup_bam_own(input_bam, output_bam, threads=1, temp_dir = '/tmp', chunk_siz
         input_bam,
         "-o", filtered_bam
     ]
-    log_function(f"[v2] Step0: Filtering unmapped => {' '.join(cmd_filter)}")
+    logging.info(f"[v2] Step0: Filtering unmapped => {' '.join(cmd_filter)}")
     ret = subprocess.run(cmd_filter)
     if ret.returncode != 0:
         raise RuntimeError(f"[Error] samtools view -F 4 failed on {input_bam}")
@@ -282,7 +284,7 @@ def dedup_bam_own(input_bam, output_bam, threads=1, temp_dir = '/tmp', chunk_siz
     cmd_view  = ["samtools", "view", "-h", filtered_bam]
     cmd_write = ["samtools", "view", "-b", '-@', str(int(threads)-1), "-o", temp_renamed_bam, "-"]
 
-    log_function("[v2] Step1: Renaming QNAME => bc+UMI, storing old in OQ:Z:")
+    logging.info("[v2] Step1: Renaming QNAME => bc+UMI, storing old in OQ:Z:")
     with subprocess.Popen(cmd_view, stdout=subprocess.PIPE, text=True) as proc_in, \
          subprocess.Popen(cmd_write, stdin=subprocess.PIPE, text=True) as proc_out:
 
@@ -317,12 +319,12 @@ def dedup_bam_own(input_bam, output_bam, threads=1, temp_dir = '/tmp', chunk_siz
         "-o", temp_collated_bam,
         temp_renamed_bam
     ]
-    log_function(f"[v2] Step2: Collate => {' '.join(cmd_collate)}")
+    logging.info(f"[v2] Step2: Collate => {' '.join(cmd_collate)}")
     ret_collate = subprocess.run(cmd_collate)
     if ret_collate.returncode != 0:
         raise RuntimeError("[v2] samtools collate failed")
 
-    log_function("[v2] Step3: flush group => keep best AS => final rename => out.bam")
+    logging.info("[v2] Step3: flush group => keep best AS => final rename => out.bam")
 
     cmd_collated_view = ["samtools", "view", "-h", temp_collated_bam]
     cmd_final_write   = ["samtools", "view", "-b", "-o", output_bam, "-"]
@@ -333,10 +335,10 @@ def dedup_bam_own(input_bam, output_bam, threads=1, temp_dir = '/tmp', chunk_siz
     os.remove(temp_renamed_bam)
     os.remove(temp_collated_bam)
 
-    log_function(f"[v2] Done => {output_bam}")
+    logging.info(f"[v2] Done => {output_bam}")
 
-def collate_bam(input_bam, output_bam, threads=1, log_function=print):
-    log_function(f"[samtools_collate] Collating {input_bam} => {output_bam} (threads={threads})")
+def collate_bam(input_bam, output_bam, threads=1):
+    logging.info(f"[samtools_collate] Collating {input_bam} => {output_bam} (threads={threads})")
     result = subprocess.run([
         "samtools", "collate",
         "-@", str(threads),
@@ -345,14 +347,20 @@ def collate_bam(input_bam, output_bam, threads=1, log_function=print):
     ])
     if result.returncode != 0:
         raise RuntimeError("[samtools_collate] samtools collate failed.")
-    log_function("[samtools_collate] Done.")
+    logging.info("[samtools_collate] Done.")
 
 
 def genomemapping(starref, gtffile, threadnum, options, outputfolder, STARparamfile='NA'):
-    log_file = os.path.join(outputfolder, "genomemapping.log")
-    os.makedirs(outputfolder, exist_ok=True)
-    with open(log_file, 'a') as f:
-        f.write("[genomemapping] start...\n")
+
+    for h in logging.root.handlers[:]:
+        logging.root.removeHandler(h)
+        
+    logfilename = os.path.join(outputfolder, ".logs/genomemapping.log")
+    os.makedirs(os.path.dirname(logfilename), exist_ok=True)
+    logging.basicConfig(filename=logfilename, filemode="w", level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+
+    logging.info("genomemapping fstart...\n")
 
     star_output_prefix = os.path.join(outputfolder, "STAR/temp")
 
@@ -420,6 +428,7 @@ def genomemapping(starref, gtffile, threadnum, options, outputfolder, STARparamf
             for line in lines:
                 extra_star_params.extend(line.split())
 
+        logging.info("STAR genome mapping log:\n")
         star_align(
             genome_dir=starref,
             read_files_in=os.path.join(outputfolder, "combine.fq"), 
@@ -431,28 +440,24 @@ def genomemapping(starref, gtffile, threadnum, options, outputfolder, STARparamf
 
     filtered_bam = os.path.join(outputfolder, "STAR/tempfiltered.bam")
 
-    def my_logger(msg):
-        with open(log_file, 'a') as ff:
-            ff.write(msg + "\n")
+    
 
     if "M" in options:
-        my_logger("[genomemapping] Using two-step markdup => dedup_bam_samtools_markdup_2step()")
+        logging.info("genomemapping Using two-step markdup => dedup_bam_samtools_markdup_2step()")
         dedup_bam_samtools_markdup_2step(
             input_bam = star_sorted_bam,
             output_bam= filtered_bam,
             threads   = int(threadnum),
-            log_function=my_logger
         )
     else:
-        my_logger("[genomemapping] Using alignment performance => dedup_bam_own()")
+        logging.info("genomemapping Using alignment performance => dedup_bam_own()")
         temp_dir = os.path.join(outputfolder, "temps/")
         dedup_bam_own(
             input_bam = star_unsorted_bam,
             output_bam= filtered_bam,
             threads   = int(threadnum),
             temp_dir  = temp_dir,
-            log_function=my_logger
         )
 
-    my_logger(f"[genomemapping] Done. final => {filtered_bam}")
+    logging.info(f"[genomemapping] Done. final => {filtered_bam}")
     return filtered_bam

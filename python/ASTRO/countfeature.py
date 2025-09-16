@@ -3,7 +3,7 @@ import subprocess
 import re
 import math
 import multiprocessing
-
+import logging
 
 
 
@@ -265,7 +265,21 @@ def parse_input_build_matrix_exactly(input_file, gene2num, num2gene, as_threshol
     if do_filter:
         fo.close()
     return matrix
-def genemat2tsv(input_file, output_file, barcodes_file, gtf_file=None, filter_str="25:0.75", easy_mode=False):
+def summarize_matrix_with_per_pixel(matrix):
+    genes_per_pixel = {}
+    count_per_pixel = {}
+
+    for key, cnt in matrix.items():
+        pos, genes = key.rsplit('_', 1)
+        count_per_pixel[pos] = count_per_pixel.get(pos, 0) + cnt
+        if '-' not in genes:
+            if pos not in genes_per_pixel:
+                genes_per_pixel[pos] = set()
+            genes_per_pixel[pos].add(genes)
+
+    genes_per_stats = {pos: len(gset) for pos, gset in genes_per_pixel.items()}
+    return genes_per_stats, count_per_pixel
+def featurebed2mattsv(input_file, output_file, barcodes_file, gtf_file=None, filter_str="25:0.75", easy_mode=False):
 
     do_filter = False
     as_threshold = 25.0
@@ -299,6 +313,32 @@ def genemat2tsv(input_file, output_file, barcodes_file, gtf_file=None, filter_st
         easy_mode=easy_mode
     )
 
+    import statistics as stats
+    genes_per_stats, count_per_pixel = summarize_matrix_with_per_pixel(matrix)
+
+    gene_counts = list(genes_per_stats.values())
+    read_counts = list(count_per_pixel.values())
+
+    maxgene = max(gene_counts)
+    mingene = min(gene_counts)
+    meangene = stats.mean(gene_counts)
+    stdgene = stats.stdev(gene_counts) if len(gene_counts) > 1 else 0
+
+    maxcount = max(read_counts)
+    mincount = min(read_counts)
+    meancount = stats.mean(read_counts)
+    stdcount = stats.stdev(read_counts) if len(read_counts) > 1 else 0
+
+    logging.info(f"Max number of gene features over all positions: {maxgene}.")
+    logging.info(f"Min number of gene features over all positions: {mingene}.")
+    logging.info(f"Average number of gene features over all positions: {meangene}.")
+    logging.info(f"STD of gene features over all positions: {stdgene}.\n")
+
+    logging.info(f"Max number of UMI counts over all positions: {maxcount}.")
+    logging.info(f"Min number of UMI counts over all positions: {mincount}.")
+    logging.info(f"Average number of UMI counts over all positions: {meancount}.")
+    logging.info(f"STD of UMI counts over all positions: {stdcount}.\n")
+   
 
     used_gene_keys = set()
     for k in matrix.keys():
@@ -337,6 +377,9 @@ def genemat2tsv(input_file, output_file, barcodes_file, gtf_file=None, filter_st
 
     with open(output_file, 'w') as fo:
         header_elems = ["gene"] + [loc.replace('_', 'x') for loc in locations]
+
+        
+
         fo.write("\t".join(header_elems) + "\n")
     
 
@@ -372,6 +415,9 @@ def genemat2tsv(input_file, output_file, barcodes_file, gtf_file=None, filter_st
                 cnt = matrix.get(key, 0)
                 row_counts.append(str(cnt))
             fo.write(mg_name + "\t" + "\t".join(row_counts) + "\n")
+
+    
+    
 
 
 def estimate_total_lines(input_bam):
@@ -457,12 +503,47 @@ def worker(chunk_bam,gtffile):
     os.remove(chunk_bed)
     return chunk_expmatbed
 
+def parse_star_log(filepath):
+    metrics = {}
+    with open(filepath, "r") as f:
+        for line in f:
+            if "|" not in line:
+                continue
+            key, val = [x.strip() for x in line.split("|", 1)]
+            clean_val = val.rstrip("%").strip()
+            try:
+                value = float(clean_val) if "." in clean_val else int(clean_val)
+            except ValueError:
+                value = clean_val
+            metrics[key] = value
+    return metrics
 
 
 
 
 def countfeature(gtffile, threadnum, options, barcodes_file, outputfolder, qualityfilter):
 
+    for h in logging.root.handlers[:]:
+        logging.root.removeHandler(h)
+        
+    logfilename = os.path.join(outputfolder, ".logs/countfeature.log")
+    os.makedirs(os.path.dirname(logfilename), exist_ok=True)
+    logging.basicConfig(filename=logfilename, filemode="w", level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
+    logging.info("countfeature step starts.\n")
+
+    with open(os.path.join(outputfolder, "STAR/tempLog.final.out"), "r") as f:
+        content = f.read()
+        logging.info(f"\nload STAR genome mapping result...\nSTAR genome mapping stat:\n{content}\n")
+
+    STAR_Log_final_out = parse_star_log(os.path.join(outputfolder, "STAR/tempLog.final.out"))
+    input_read_number = STAR_Log_final_out['Number of input reads']
+    mapped_read_number = STAR_Log_final_out['Uniquely mapped reads number'] + STAR_Log_final_out['Number of reads mapped to multiple loci']
+    mapped_read_percent = round(100*mapped_read_number/input_read_number,2)
+    logging.info(f"STAR Mapped Read Number: {mapped_read_number}.\n")
+    logging.info(f"STAR alignment rate: {mapped_read_percent}%.\n")
+    
+    
     do_easy_mode = 1
     if 'H' in options:
         do_easy_mode = 0
@@ -475,10 +556,11 @@ def countfeature(gtffile, threadnum, options, barcodes_file, outputfolder, quali
     #collate_bam(input_bam = tempfilteredbam, output_bam = collatedbam, threads = threadnum)
     #bam_to_bed(input_bam=collatedbam, output_bed=collatedbed)
     #inter_bed2geneFile(inputbed=collatedbed, outputfile=expmatbed, gtffile=gtffile)
-    #genemat2tsv(input_file=expmatbed, output_file=expmattsv, barcodes_file=barcodes_file, gtf_file=gtffile, filter_str="25:0.75", easy_mode=do_easy_mode)
+    #featurebed2mattsv(input_file=expmatbed, output_file=expmattsv, barcodes_file=barcodes_file, gtf_file=gtffile, filter_str="25:0.75", easy_mode=do_easy_mode)
     #collate_and_split(tempfilteredbam)
     chunk_bams = collate_and_split(tempfilteredbam, collatedbams, threadnum)
 
+    logging.info("overlapping feature with reads.\n")
     pool = multiprocessing.Pool(processes=int(threadnum));results = pool.starmap(worker, [(cbam, gtffile) for cbam in chunk_bams]);pool.close();pool.join()
     with open(expmatbed, 'w') as fout:
         for cef in results:
@@ -486,9 +568,30 @@ def countfeature(gtffile, threadnum, options, barcodes_file, outputfolder, quali
                 for line in fin:
                     fout.write(line)
             os.remove(cef)
+    
+    logging.info("remove temp overlap files.\n")
     for cef in chunk_bams:
         os.remove(cef)
+
+    
+    with open(expmatbed, "r") as f:
+        readwithfeat = sum(1 for _ in f)
+    readwithoutfeat = mapped_read_number - readwithfeat
+    unfeat_read_percent = round(100*(readwithoutfeat/mapped_read_number),2)
+    feat_read_percent = round(100*(readwithfeat/mapped_read_number),2)
+    logging.info(f"Total dedup reads overlapped with feautre: {readwithfeat}.\n")
+    logging.info(f"Reads aligned to features (count & rate): {readwithfeat} [{feat_read_percent}%].\n")
+    logging.info(f"Intergenic alignment (count & rate): {readwithoutfeat} [{unfeat_read_percent}%].\n")
+
+
+    logging.info(f"feature bed to mat tsv with quality filter: {qualityfilter}.")
+    logging.info(f"\n\n\nMatrix Stat of expmat.tsv:\n")
     if qualityfilter == 'NA' or qualityfilter == '0:0':
-        genemat2tsv(input_file=expmatbed, output_file=expmattsv, barcodes_file=barcodes_file, gtf_file=gtffile, filter_str="0:0", easy_mode=do_easy_mode)
+        featurebed2mattsv(input_file=expmatbed, output_file=expmattsv, barcodes_file=barcodes_file, gtf_file=gtffile, filter_str="0:0", easy_mode=do_easy_mode)
     else:
-        genemat2tsv(input_file=expmatbed, output_file=expmattsv, barcodes_file=barcodes_file, gtf_file=gtffile, filter_str=qualityfilter, easy_mode=do_easy_mode)
+        featurebed2mattsv(input_file=expmatbed, output_file=expmattsv, barcodes_file=barcodes_file, gtf_file=gtffile, filter_str=qualityfilter, easy_mode=do_easy_mode)
+   
+    
+    
+    
+    
