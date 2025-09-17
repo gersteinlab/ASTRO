@@ -45,7 +45,8 @@ def ASTRO (**kwargs):
     args['barcodelengthrange']  = args.get('barcodelengthrange') or data.get('barcodelengthrange') or "NA"
     args['ReadLayout']  = args.get('ReadLayout') or data.get('ReadLayout') or "singleend"
     args['limitOutSAMoneReadBytes4barcodeMapping']  = args.get('limitOutSAMoneReadBytes4barcodeMapping') or data.get('limitOutSAMoneReadBytes4barcodeMapping') or "NA"
-
+    args['not_organize_result']  = args.get('not_organize_result') or data.get('not_organize_result') or False
+    
     os.makedirs(args['outputfolder'], exist_ok=True)
 
     args['barcodemode'] = "singlecell" if args.get('barcodemode')=="singlecell" or data.get('barcodemode')=="singlecell" else "spatial"
@@ -126,6 +127,7 @@ def ASTRO (**kwargs):
         args['starref'] = args.get('starref') or data.get('starref') or sys.exit("starref is not specified in both parser and json")
         args['gtffile'] = args.get('gtffile') or data.get('gtffile') or sys.exit("gtffile is not specified in both parser and json")
         genomemapping(args['starref'], args['gtffile'], args['threadnum'], args['options'], args['outputfolder'],args['STARparamfile4genome'])
+        os.chmod(os.path.join(args['outputfolder'], "STAR/"), 0o755)
     if args['steps'] & 4:
         from .countfeature import countfeature
         bcfile = args.get('barcode_file') or data.get('barcode_file') or sys.exit("barcode_file missing in Step4")
@@ -135,7 +137,12 @@ def ASTRO (**kwargs):
         if args['genes2check']:
             usedgtf = getvalidedgtf_parallel(gtfin=gtffile,outputfolder=args['outputfolder'],genes2check=args['genes2check'],hangout=5,threadsnum=args['threadnum'])
         countfeature(usedgtf, args['threadnum'], args['options'], bcfile, args['outputfolder'], qualityfilter)
-        
+
+        if qualityfilter not in ['0:0','NA']:
+            os.makedirs(os.path.join(args['outputfolder'], "filteredout/"), exist_ok=True)
+            expmatbedexcl = os.path.join(args['outputfolder'], "filteredout/expmat.bed.excl")
+            os.rename(os.path.join(args['outputfolder'], "expmat.bed.excl"), expmatbedexcl)
+
         if args['barcodemode'] == "singlecell":
             final_bc_file = bcfile  
             i2bc = {}
@@ -187,8 +194,36 @@ def ASTRO (**kwargs):
                     #featurefilter(args['gtffile'], args['options'], args['barcode_file'], args['filterlogratio'], args['outputfolder'])
                     featurefilter(usedgtf, args['options'], args['barcode_file'], args['filterlogratio'], args['outputfolder'])
                     
-                    
+    if not args['not_organize_result']:
+        interimfolder = os.path.join(args['outputfolder'], "interim/")
+        os.makedirs(interimfolder, exist_ok=True)
+        import gzip
+        import shutil
 
+        expmatbed = os.path.join(args['outputfolder'], "expmat.bed")
+        combinefq = os.path.join(args['outputfolder'], "combine.fq")
+        expmatbed2 = os.path.join(args['outputfolder'], "interim/expmat.bed")
+        combinefq2 = os.path.join(args['outputfolder'], "interim/combine.fq")
+        with open(expmatbed, "rb") as f_in, gzip.open(expmatbed2+'.gz', "wb") as f_out:
+            shutil.copyfileobj(f_in, f_out)
+        with open(combinefq, "rb") as f_in, gzip.open(combinefq2+'.gz', "wb") as f_out:
+            shutil.copyfileobj(f_in, f_out)
+        os.remove(expmatbed)
+        os.remove(combinefq)
+
+        for file_name in os.listdir(os.path.join(args['outputfolder'], "temps/barcode_db/")):
+            file_path = os.path.join(os.path.join(args['outputfolder'], "temps/barcode_db/"), file_name)
+            if os.path.isfile(file_path):
+                os.remove(file_path)  
+        os.rmdir(os.path.join(args['outputfolder'], "temps/barcode_db/"))
+
+        for file_name in os.listdir(os.path.join(args['outputfolder'], "temps/")):
+            file_path = os.path.join(os.path.join(args['outputfolder'], "temps/"), file_name)
+            if os.path.isfile(file_path):
+                os.remove(file_path)  
+        os.rmdir(os.path.join(args['outputfolder'], "temps/"))
+    
+    
 
     with open(os.path.join(args['outputfolder'],"ASTRO.log.out"),"w") as logout:
         logout.write("input json information:\n")

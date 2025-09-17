@@ -32,6 +32,7 @@ def main():
     parser.add_argument("--workflow", default="new", help="which workflow to run, old or new")
     parser.add_argument("--ReadLayout", default="singleend", help="which Read Layout, singleend or pairedend")
     parser.add_argument("--limitOutSAMoneReadBytes4barcodeMapping", default="NA", help="limitOutSAMoneReadBytes for barcode mapping")
+    parser.add_argument("--not_organize_result", action="store_true", help="not try to organize outputfolder by removing tmp,  compresing files and moving important intermediate files to interim")
 
     args = parser.parse_args()
     workflow = args.workflow

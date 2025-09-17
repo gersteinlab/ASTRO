@@ -96,15 +96,15 @@ def featurefilter(gtffile, options, barcodes_file, filterlogratio, outputfolder)
     logfilename = os.path.join(outputfolder, ".logs/featurefilter.log")
     os.makedirs(os.path.dirname(logfilename), exist_ok=True)
     logging.basicConfig(filename=logfilename, filemode="w", level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
-
+    
     logging.info(f"\nMatrix Stat of finalexpmat.tsv:\n")
     do_easy_mode = 1
     if 'H' in options:
         do_easy_mode = 0
-    expmatbedexcl = os.path.join(outputfolder, "expmat.bed.excl")
-    expmattsvexcel = os.path.join(outputfolder, "expmat.tsv.excl")
+    expmatbedexcl = os.path.join(outputfolder, "filteredout/expmat.bed.excl")
+    expmattsvexcel = os.path.join(outputfolder, "filteredout/expmat.tsv.excl")
     expmattsv = os.path.join(outputfolder, "expmat.tsv")
-    finalexpmattsv = os.path.join(outputfolder, "finalexpmat.tsv")
+    finalexpmattsv = os.path.join(outputfolder, "filteredout/addlowq_expmat.tsv")
     featurebed2mattsv(input_file=expmatbedexcl, output_file=expmattsvexcel, barcodes_file=barcodes_file, gtf_file=gtffile, filter_str="0:0", easy_mode=do_easy_mode)
     filtMATbyRT(expmattsv, expmattsvexcel, finalexpmattsv, filterlogratio)
     if "auto_barcode.tsv" in barcodes_file:

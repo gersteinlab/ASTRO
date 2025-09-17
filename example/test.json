@@ -10,5 +10,7 @@
     "outputfolder": "output/",
     "gtffile": "mmu.all.gtf",
     "starref": "mouseIndex/",
-    "options": "H"
+    "options": "H",
+    "barcodeposition": "b16",
+    "barcodelengthrange": "15_20"
 }
