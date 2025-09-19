@@ -264,28 +264,31 @@ filtmatbyrt --expmatgood good_expmat.tsv --expmatbad bad_expmat.tsv --finalexpma
 # 4.A Simple Example
 
 ## 4.1 Assume the following files are prepared:  
-R1.fq, R2.fq: Input sequencing reads.  
+example.barcodeRead.fastq.gz, example.transRead.fastq.gz: Input sequencing reads.  
 spatial_barcodes.txt: Records coordinates and barcode sequences.  
-StarIndex/: STAR genome index directory.  
-hsa.no_piRNA.gtf: Gene annotation file.  
+mmu.mod.gtf: Gene annotation file.  
+mouseIndex: a STAR genome indexes for mouse genome.
 
-## 4.2 Create the following JSON file (parameter.json):  
-{  
-  "R1": "R1.fq",  
-  "R2": "R2.fq",  
-  "barcode_file": "spatial_barcodes.txt",  
-  "PrimerStructure1": "AAGCAGTGGTATCAACGCAGAGTGAATGGG_b_A{10}N{150}",
-  "StructureUMI": "CAAGCGTTGGCTTCTCGCATCT_10",  
-  "StructureBarcode": "20_ATCCACGTGCTTGAGAGGCCAGAGCATTCG:...GTGGCCGATGTTTCGCATCGGCGTACGACT",  
-  "threadnum": 16,  
-  "steps": 7,  
-  "outputfolder": "output/",  
-  "gtffile": "hsa.no_piRNA.gtf",  
-  "starref": "StarIndex/"  
+## 4.2 Create the following JSON file (example/test.json):  
+{\
+    "barcode_read": "example.barcodeRead.fastq.gz", \
+    "transcript_read": "example.transRead.fastq.gz", \
+    "barcode_file": "spatial_barcodes.txt", \
+    "PrimerStructure1": "AAGCAGTGGTATCAACGCAGAGTGAATGGG_b_A{10}N{150}",\
+    "StructureUMI": "CAAGCGTTGGCTTCTCGCATCT_10", \
+    "StructureBarcode": "20_ATCCACGTGCTTGAGAGGCCAGAGCATTCG:ATCCACGTGCTTGAGAGGCCAGAGCATTCG...GTGGCCGATGTTTCGCATCGGCGTACGACT",\
+    "threadnum": 1, \
+    "steps": 7, \
+    "outputfolder": "output/", \
+    "gtffile": "mmu.mod.gtf", \
+    "starref": "mouseIndex/", \
+    "options": "H", \
+    "barcodeposition": "b16",\
+    "barcodelengthrange": "15_20" \
 }
 
 ## 4.3 Run the command:
-ASTRO parameter.json
+ASTRO test.json
 
 # 5. Single-Cell Mode
 

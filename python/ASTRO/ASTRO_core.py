@@ -199,17 +199,32 @@ def ASTRO (**kwargs):
         os.makedirs(interimfolder, exist_ok=True)
         import gzip
         import shutil
+        from shutil import which
 
         expmatbed = os.path.join(args['outputfolder'], "expmat.bed")
         combinefq = os.path.join(args['outputfolder'], "combine.fq")
-        expmatbed2 = os.path.join(args['outputfolder'], "interim/expmat.bed")
-        combinefq2 = os.path.join(args['outputfolder'], "interim/combine.fq")
-        with open(expmatbed, "rb") as f_in, gzip.open(expmatbed2+'.gz', "wb") as f_out:
-            shutil.copyfileobj(f_in, f_out)
-        with open(combinefq, "rb") as f_in, gzip.open(combinefq2+'.gz', "wb") as f_out:
-            shutil.copyfileobj(f_in, f_out)
-        os.remove(expmatbed)
-        os.remove(combinefq)
+        expmatbed2 = os.path.join(args['outputfolder'], "interim/expmat.bed.gz")
+        combinefq2 = os.path.join(args['outputfolder'], "interim/combine.fq.gz")
+        
+
+        threads = args['threadnum']
+        def compress_one(src, dst):
+            tmp = dst + ".tmp"
+
+            if which("pigz"):
+                with open(tmp, "wb") as out:
+                    subprocess.run(["pigz", "-p", str(threads), "-c", str(src)], check=True, stdout=out)
+            elif which("bgzip"):
+                with open(tmp, "wb") as out:
+                    subprocess.run(["bgzip", "-@", str(threads), "-c", str(src)], check=True, stdout=out)
+            else:
+                with open(src, "rb") as f_in, gzip.open(tmp, "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+
+            os.replace(tmp, dst)   
+            os.remove(src)
+        compress_one(expmatbed,  expmatbed2)
+        compress_one(combinefq,  combinefq2)
 
         for file_name in os.listdir(os.path.join(args['outputfolder'], "temps/barcode_db/")):
             file_path = os.path.join(os.path.join(args['outputfolder'], "temps/barcode_db/"), file_name)
