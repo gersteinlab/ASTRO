@@ -97,7 +97,9 @@ def featurefilter(gtffile, options, barcodes_file, filterlogratio, outputfolder)
     os.makedirs(os.path.dirname(logfilename), exist_ok=True)
     logging.basicConfig(filename=logfilename, filemode="w", level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
     
-    logging.info(f"\nMatrix Stat of finalexpmat.tsv:\n")
+    logging.info(f"featurefilter step starts\n")
+    
+    logging.info(f"\nMatrix Stat of low quality reads which does not have werid spatial distribution:\n")
     do_easy_mode = 1
     if 'H' in options:
         do_easy_mode = 0
@@ -142,4 +144,5 @@ def featurefilter(gtffile, options, barcodes_file, filterlogratio, outputfolder)
 
             os.remove(finalexpmattsv)
             os.rename(tmp_renamed, finalexpmattsv)
+    logging.info(f"featurefilter step ends\n")
 

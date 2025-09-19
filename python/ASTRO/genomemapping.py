@@ -360,7 +360,8 @@ def genomemapping(starref, gtffile, threadnum, options, outputfolder, STARparamf
     logging.basicConfig(filename=logfilename, filemode="w", level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
 
-    logging.info("genomemapping fstart...\n")
+    logging.info("genomemapping step starts...\n")
+    
 
     star_output_prefix = os.path.join(outputfolder, "STAR/temp")
 
@@ -460,4 +461,6 @@ def genomemapping(starref, gtffile, threadnum, options, outputfolder, STARparamf
         )
 
     logging.info(f"[genomemapping] Done. final => {filtered_bam}")
+    logging.info(f"genomemapping step ends\n")
+    
     return filtered_bam

@@ -8,7 +8,7 @@
     "threadnum": 1,
     "steps": 7,
     "outputfolder": "output/",
-    "gtffile": "mmu.all.gtf",
+    "gtffile": "mmu.mod.gtf",
     "starref": "mouseIndex/",
     "options": "H",
     "barcodeposition": "b16",

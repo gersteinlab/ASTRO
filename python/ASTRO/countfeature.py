@@ -590,7 +590,7 @@ def countfeature(gtffile, threadnum, options, barcodes_file, outputfolder, quali
         featurebed2mattsv(input_file=expmatbed, output_file=expmattsv, barcodes_file=barcodes_file, gtf_file=gtffile, filter_str="0:0", easy_mode=do_easy_mode)
     else:
         featurebed2mattsv(input_file=expmatbed, output_file=expmattsv, barcodes_file=barcodes_file, gtf_file=gtffile, filter_str=qualityfilter, easy_mode=do_easy_mode)
-   
+    logging.info(f"countfeature step ends.\n")
     
     
     

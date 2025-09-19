@@ -42,14 +42,14 @@ The ASTRO script accepts parameters via the command line or a JSON file. The mai
   </thead>
   <tbody>
     <tr>
-      <td>R1</td>
+      <td>barcode_read (R1)</td>
       <td>Yes</td>
       <td>Step 1</td>
       <td>None</td>
       <td>FASTQ file containing spatial barcode and UMI information</td>
     </tr>
     <tr>
-      <td>R2</td>
+      <td>transcript_read (R2)</td>
       <td>Yes</td>
       <td>Step 1</td>
       <td>None</td>

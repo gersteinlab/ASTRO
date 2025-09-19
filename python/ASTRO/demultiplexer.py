@@ -188,7 +188,7 @@ def merge_chunk_to_tempfile_to2files(chunk_index, linesA, linesB, linesC, temp_d
             for i in range(0, len(linesA), 4):
                 a1 = linesA[i].rstrip('\n')   # @readA
                 a2 = linesA[i+1].rstrip('\n') # SEQ
-                if len(a2) >= int(barcodelengthmin) and len(a2) <= int(barcodelengthmax):
+                if not (int(barcodelengthmin) <= len(a2) <= int(barcodelengthmax)):
                     continue
                 shouldbebarcode = a2[barcodepositionvector[0]:barcodepositionvector[1]]
                 
@@ -273,7 +273,7 @@ def Fqs2_1fq(fa, fb, fc, out, nproc, chunk_size, temp_dir, barcodeposition='NA',
                 async_results = []
                 for (chunk_index, linesA, linesB, linesC) in read_in_chunks(fA, fB, fC, chunk_num_reads=chunk_size):
                     res = pool.apply_async(merge_chunk_to_tempfile, (chunk_index, linesA, linesB, linesC, temp_dir))
-                async_results.append(res)
+                    async_results.append(res)
             pool.close()
 
             for r in async_results:
@@ -294,7 +294,7 @@ def Fqs2_1fq(fa, fb, fc, out, nproc, chunk_size, temp_dir, barcodeposition='NA',
                 async_results = []
                 for (chunk_index, linesA, linesB, linesC) in read_in_chunks(fA, fB, fC, chunk_num_reads=chunk_size):
                     res = pool.apply_async(merge_chunk_to_tempfile_to2files, (chunk_index, linesA, linesB, linesC, temp_dir, barcodeposition, barcodelengthmin, barcodelengthmax, barcode_dict))
-                async_results.append(res)
+                    async_results.append(res)
             pool.close()
 
             for r in async_results:
@@ -553,6 +553,8 @@ def demultiplexing(read1,read2, barcode_file, PrimerStructure1, StructureUMI, St
     logfilename = os.path.join(outputfolder, ".logs/demultiplexing.log")
     os.makedirs(os.path.dirname(logfilename), exist_ok=True)
     logging.basicConfig(filename=logfilename, filemode="w", level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+    
+    logging.info(f"demultiplexing step starts\n")
 
     threadnum = str(threadnum)
     if PrimerStructure1 != "NA":
@@ -638,7 +640,9 @@ def demultiplexing(read1,read2, barcode_file, PrimerStructure1, StructureUMI, St
         file_path = os.path.join(barcode_mapping_dir, file_name)
         if os.path.isfile(file_path):
             os.remove(file_path)  
-    os.rmdir(barcode_mapping_dir) 
+    os.rmdir(barcode_mapping_dir)
+    
+    logging.info(f"demultiplexing step ends\n")
 
 
 def get_barcode_for_single_cell(read1, read2, barcode_file, PrimerStructure1, StructureUMI, StructureBarcode, threadnum, outputfolder,barcode_threshold=100,barcodelength=0):
