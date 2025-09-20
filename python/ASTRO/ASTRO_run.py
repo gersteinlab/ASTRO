@@ -15,7 +15,7 @@ def main():
     parser.add_argument("--outputfolder", help="output folder")
     parser.add_argument("--starref", help="STAR referebce folder")
     parser.add_argument("--gtffile", help="gtf file")
-    parser.add_argument("--PrimerStructure1", help="structure for R1, like AAGCAGTGGTATCAACGCAGAGTGAATGGG_b_A{10}N{150}") 
+    parser.add_argument("--PrimerStructure", help="structure for R1, like AAGCAGTGGTATCAACGCAGAGTGAATGGG_b_A{10}N{150}") 
     parser.add_argument("--StructureUMI", help="structure for UMI, like CAAGCGTTGGCTTCTCGCATCT_10") 
     parser.add_argument("--StructureBarcode", help="structure for UMI, like 20_ATCCACGTGCTTGAGAGGCCAGAGCATTCG:ATCCACGTGCTTGAGAGGCCAGAGCATTCG...GTGGCCGATGTTTCGCATCGGCGTACGACT")
     parser.add_argument("--barcodemode", choices=["singlecell", "spatial"], help="Barcode processing mode: 'singlecell' or 'spatial'")
@@ -33,6 +33,7 @@ def main():
     parser.add_argument("--ReadLayout", default="singleend", help="which Read Layout, singleend or pairedend")
     parser.add_argument("--limitOutSAMoneReadBytes4barcodeMapping", default="NA", help="limitOutSAMoneReadBytes for barcode mapping")
     parser.add_argument("--not_organize_result", action="store_true", help="not try to organize outputfolder by removing tmp,  compresing files and moving important intermediate files to interim")
+    parser.add_argument("--manually_set_barcode_details", action="store_true", help="not automatically set barcode details, mannually set by StructureBarcode, barcodeposition and barcodelengthrange")
 
     args = parser.parse_args()
     workflow = args.workflow
@@ -46,7 +47,7 @@ def main():
         all_args = dict(vars(args))
         allowed_keys = {
             "R1", "R2", "barcode_file", "outputfolder", "starref", "gtffile",
-            "PrimerStructure1", "StructureUMI", "StructureBarcode",
+            "PrimerStructure", "StructureUMI", "StructureBarcode",
             "scriptFolder", "barcodeposition", "barcodelengthrange",
             "threadnum",
         }

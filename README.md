@@ -84,11 +84,11 @@ The ASTRO script accepts parameters via the command line or a JSON file. The mai
       <td>Path to the GTF file</td>
     </tr>
     <tr>
-      <td>PrimerStructure1</td>
+      <td>PrimerStructure</td>
       <td>Yes</td>
       <td>Step 1</td>
       <td>-</td>
-      <td>Primer structure for R1, e.g. <code>AAGCAGTGGTATCAACGCAGAGTGAATGGG_b_A&#123;10&#125;N&#123;150&#125;</code></td>
+      <td>Primer structure for transcript_read (R2), e.g. <code>AAGCAGTGGTATCAACGCAGAGTGAATGGG_b_A&#123;10&#125;N&#123;150&#125;</code></td>
     </tr>
     <tr>
       <td>StructureUMI</td>
@@ -102,7 +102,13 @@ The ASTRO script accepts parameters via the command line or a JSON file. The mai
       <td>Yes</td>
       <td>Step 1</td>
       <td>-</td>
-      <td>Spatial barcode structure, e.g., 25_ATCCACGTGCTTGAGAGGCCAAGATCG: ATCCACGTGCTTGAGAGGCCAAGATCG... GTGGCCGATGTTTCGCATCGGCGTAGACT</td>
+      <td> When manually_set_barcode_details is false, you must specify the positions of all spatial barcodes in order and join them with colon ":" in the option. You can describe each position in two ways: 
+      1. Barcode before/after a linker: 8_ATCCACGTGCTT or AACCAAGATCG_8 means the barcode is 8 bp before or after the linker, respectively. 
+      2. Barcode between two linkers: GAGGCCAAGATCG_8_GTGGCCGATGTTTCGC means the barcode is 8 bp long and lies between the two linkers. (Here, 8bp is the expected barcode length.).         
+      When manually_set_barcode_details is true, you still specify the positions for ASTRO to search spatial barcodes in order and join them with colon ":".
+       Then, 1. Barcode before/after a linker (search window), 20_ATCCACGTGCTT or AACCAAGATCG_20 indicates ASTRO will search within a 20-bp window before or after the linker, respectively. (The value 20 is not the expected barcode length.) 
+       2. Barcode between two linkers (no explicit length): TTGAGAGGCCAAGATC...GTGGCCGATGTTTC omits the length; ASTRO will search for the barcode between the two linkers.
+      </td>
     </tr>
     <tr>
       <td>threadnum</td>
@@ -212,6 +218,15 @@ The ASTRO script accepts parameters via the command line or a JSON file. The mai
       </td>
     </tr>
     <tr>
+      <td>manually_set_barcode_details</td>
+      <td>No</td>
+      <td>Step 1</td>
+      <td>False</td>
+      <td>
+      If false, ASTRO will automatically set the barcode structures, and only needs neccssary input for the barcode information. If true, ASTRO needs details of how to extract barcodes. See details in StructureBarcode.
+      </td>
+    </tr>
+    <tr>
       <td>genes2check</td>
       <td>No</td>
       <td>Step 4</td>
@@ -222,6 +237,8 @@ The ASTRO script accepts parameters via the command line or a JSON file. The mai
     </tr>
   </tbody>
 </table>
+
+
 
 ## 3.1 Parameter Priority  
 ASTRO can receive parameters from the command line or a JSON file. JSON parameters can be specified as positional arguments (json_file_path1) or via --json_file_path. Priority is as follows:
@@ -284,7 +301,7 @@ mouseIndex: a STAR genome indexes for mouse genome.
     "starref": "mouseIndex/", \
     "options": "H", \
     "barcodeposition": "b16",\
-    "barcodelengthrange": "15_20" \
+    "barcodelengthrange": "15_40" \
 }
 
 ## 4.3 Run the command:

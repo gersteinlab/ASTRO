@@ -305,7 +305,7 @@ def Fqs2_2fq(fa, fb, fb2, fc, out, nproc, chunk_size, temp_dir, lowlength = 20, 
     
 
 
-def demultiplexingPair(read1, read2, barcode_file, PrimerStructure1, StructureUMI, StructureBarcode, threadnum, outputfolder, limitOutSAMoneReadBytes4barcodeMapping):
+def demultiplexingPair(read1, read2, barcode_file, PrimerStructure, StructureUMI, StructureBarcode, threadnum, outputfolder, limitOutSAMoneReadBytes4barcodeMapping):
     os.makedirs(os.path.join(outputfolder, 'temps'), exist_ok=True)
     CleanFq1 = os.path.join(outputfolder, "temps/CleanFq1.fq")
     CleanFq2 = os.path.join(outputfolder, "temps/CleanFq2.fq")
@@ -321,9 +321,9 @@ def demultiplexingPair(read1, read2, barcode_file, PrimerStructure1, StructureUM
     
     threadnum = str(threadnum)
 
-    if PrimerStructure1 != "NA":
-        prefixread1 = PrimerStructure1.split('_', 1)[0]
-        suffixread1 = PrimerStructure1.rsplit('_', 1)[-1]
+    if PrimerStructure != "NA":
+        prefixread1 = PrimerStructure.split('_', 1)[0]
+        suffixread1 = PrimerStructure.rsplit('_', 1)[-1]
         subprocess.run([ "cutadapt", "-e", "0.25", "-a", suffixread1, "--times", "4", "-g", prefixread1, "-j", threadnum, "-o", CleanFq2, "-p", CleanFq1, read2, read1])
     else:
         CleanFq1 = read1

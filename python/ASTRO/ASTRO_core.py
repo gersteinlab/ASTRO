@@ -8,6 +8,61 @@ from .countfeature import countfeature
 from .featurefilter import featurefilter
 from .demultiplexer import demultiplexing, get_barcode_for_single_cell
 from .validgene import getvalidedgtf_parallel
+import subprocess
+
+
+
+def auto_set_barcodes(structure_barcode_in: str):
+    parts = structure_barcode_in.split(':')
+
+    out_structs = []
+    out_lens = []
+    start_position = 1
+    n = len(parts)
+
+    for i, part in enumerate(parts, start=1):
+        elems = part.split('_')
+
+        if len(elems) == 2:
+            a, b = elems
+            if a.isdigit() and b.isdigit():
+                out_lens.append(int(b))
+                outi = f"{max(int(a) - 4, 0)}_{int(b) + 8}"
+                out_structs.append(outi)
+            elif a.isdigit():
+                out_lens.append(int(a))
+                if i == 1:
+                    outi = f"{int(a) + 4}_{b}"
+                    out_structs.append(outi)
+                    start_position = 5
+                else:
+                    out_structs.append(part)
+            elif b.isdigit():
+                out_lens.append(int(b))
+                if i == n:
+                    outi = f"{a}_{int(b) + 4}"
+                    out_structs.append(outi)
+                else:
+                    out_structs.append(part)
+            else:
+                raise ValueError(f"1. wrong barcode format at '{part}': expected digits around '_'")
+        
+        elif len(elems) == 3:
+            left, mid, right = elems
+            if not mid.isdigit():
+                raise ValueError(f"2. wrong barcode length '{mid}' in '{part}'")
+            out_structs.append(f"{left}...{right}")
+            out_lens.append(int(mid))
+        
+        else:
+            raise ValueError(f"3. wrong barcode format at '{part}'")
+
+    barcode_length = sum(out_lens)
+    structure_barcode = ':'.join(out_structs)
+    barcode_position = f"{start_position}_{barcode_length}b"
+    barcode_length_range = f"{barcode_length - 4}_{barcode_length + 12}"
+
+    return structure_barcode, barcode_position, barcode_length_range
 
 
 def ASTRO (**kwargs):
@@ -46,6 +101,8 @@ def ASTRO (**kwargs):
     args['ReadLayout']  = args.get('ReadLayout') or data.get('ReadLayout') or "singleend"
     args['limitOutSAMoneReadBytes4barcodeMapping']  = args.get('limitOutSAMoneReadBytes4barcodeMapping') or data.get('limitOutSAMoneReadBytes4barcodeMapping') or "NA"
     args['not_organize_result']  = args.get('not_organize_result') or data.get('not_organize_result') or False
+    args['manually_set_barcode_details']  = args.get('manually_set_barcode_details') or data.get('manually_set_barcode_details') or False
+    
     
     os.makedirs(args['outputfolder'], exist_ok=True)
 
@@ -55,15 +112,18 @@ def ASTRO (**kwargs):
     if args['steps'] & 1:
         args['R1'] = args.get('R1') or data.get('R1') or sys.exit("R1 is not specified in both parser and json")
         args['R2'] = args.get('R2') or data.get('R2') or sys.exit("R2 is not specified in both parser and json")
-        args['PrimerStructure1'] = args.get('PrimerStructure1') or data.get('PrimerStructure1') or 'NA'
+        args['PrimerStructure'] = args.get('PrimerStructure') or data.get('PrimerStructure') or 'NA'
         
         args['StructureUMI'] = args.get('StructureUMI') or data.get('StructureUMI') or sys.exit("StructureUMI is not specified in both parser and json")
         args['StructureBarcode'] = args.get('StructureBarcode') or data.get('StructureBarcode') or sys.exit("StructureBarcode is not specified in both parser and json")
 
+        if not args['manually_set_barcode_details']:
+            args['StructureBarcode'], args['barcodeposition'], args['barcodelengthrange']  =  auto_set_barcodes(args['StructureBarcode'])
+
         if args['barcodemode'] == "singlecell":
             user_bc_file = args.get('barcode_file') or data.get('barcode_file') or "notavailable"
 
-            final_bc_file = get_barcode_for_single_cell(read1=args['R1'],read2=args['R2'],barcode_file=user_bc_file,PrimerStructure1=args['PrimerStructure1'],StructureUMI=args['StructureUMI'],StructureBarcode=args['StructureBarcode'],
+            final_bc_file = get_barcode_for_single_cell(read1=args['R1'],read2=args['R2'],barcode_file=user_bc_file,PrimerStructure=args['PrimerStructure'],StructureUMI=args['StructureUMI'],StructureBarcode=args['StructureBarcode'],
                 threadnum=args['threadnum'],
                 outputfolder=args['outputfolder'],
                 barcode_threshold=args['barcode_threshold'],
@@ -73,7 +133,7 @@ def ASTRO (**kwargs):
                 from .demultiplexer2 import demultiplexingPair
                 demultiplexingPair(
                     read1=args['R1'],read2=args['R2'], barcode_file=final_bc_file, 
-                    PrimerStructure1=args['PrimerStructure1'],
+                    PrimerStructure=args['PrimerStructure'],
                     StructureUMI=args['StructureUMI'],
                     StructureBarcode=args['StructureBarcode'],
                     threadnum=args['threadnum'], 
@@ -83,7 +143,7 @@ def ASTRO (**kwargs):
             else:
                 demultiplexing(
                     read1=args['R1'],read2=args['R2'], barcode_file=final_bc_file, 
-                    PrimerStructure1=args['PrimerStructure1'],
+                    PrimerStructure=args['PrimerStructure'],
                     StructureUMI=args['StructureUMI'],
                     StructureBarcode=args['StructureBarcode'],
                     threadnum=args['threadnum'], 
@@ -102,7 +162,7 @@ def ASTRO (**kwargs):
                 from .demultiplexer2 import demultiplexingPair
                 demultiplexingPair(
                     read1=args['R1'],read2=args['R2'], barcode_file=bcfile, 
-                    PrimerStructure1=args['PrimerStructure1'],
+                    PrimerStructure=args['PrimerStructure'],
                     StructureUMI=args['StructureUMI'],
                     StructureBarcode=args['StructureBarcode'],
                     threadnum=args['threadnum'], 
@@ -112,7 +172,7 @@ def ASTRO (**kwargs):
             else:
                 demultiplexing(
                     read1=args['R1'],read2=args['R2'], barcode_file=bcfile, 
-                    PrimerStructure1=args['PrimerStructure1'],
+                    PrimerStructure=args['PrimerStructure'],
                     StructureUMI=args['StructureUMI'],
                     StructureBarcode=args['StructureBarcode'],
                     threadnum=args['threadnum'], 
@@ -210,8 +270,8 @@ def ASTRO (**kwargs):
         threads = args['threadnum']
         def compress_one(src, dst):
             tmp = dst + ".tmp"
-
             if which("pigz"):
+                
                 with open(tmp, "wb") as out:
                     subprocess.run(["pigz", "-p", str(threads), "-c", str(src)], check=True, stdout=out)
             elif which("bgzip"):

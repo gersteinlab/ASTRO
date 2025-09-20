@@ -535,7 +535,7 @@ def filter_sam(input_sam, output_fq, num_processes, chunk_size):
     #        if chunk:
     #            yield (chunk_index, chunk)
 
-def demultiplexing(read1,read2, barcode_file, PrimerStructure1, StructureUMI, StructureBarcode, threadnum, outputfolder, limitOutSAMoneReadBytes4barcodeMapping, barcodeposition='NA', barcodelengthrange='NA'):
+def demultiplexing(read1,read2, barcode_file, PrimerStructure, StructureUMI, StructureBarcode, threadnum, outputfolder, limitOutSAMoneReadBytes4barcodeMapping, barcodeposition='NA', barcodelengthrange='NA'):
     
     os.makedirs(os.path.join(outputfolder, 'temps'), exist_ok=True)
     CleanFq1 = os.path.join(outputfolder, "temps/CleanFq1.fq")
@@ -557,9 +557,9 @@ def demultiplexing(read1,read2, barcode_file, PrimerStructure1, StructureUMI, St
     logging.info(f"demultiplexing step starts\n")
 
     threadnum = str(threadnum)
-    if PrimerStructure1 != "NA":
-        prefixread1 = PrimerStructure1.split('_', 1)[0]
-        suffixread1 = PrimerStructure1.rsplit('_', 1)[-1]
+    if PrimerStructure != "NA":
+        prefixread1 = PrimerStructure.split('_', 1)[0]
+        suffixread1 = PrimerStructure.rsplit('_', 1)[-1]
         result4out = subprocess.run([
             "cutadapt", "-e", "0.25",
             "-a", suffixread1, "--times", "4",
@@ -645,7 +645,7 @@ def demultiplexing(read1,read2, barcode_file, PrimerStructure1, StructureUMI, St
     logging.info(f"demultiplexing step ends\n")
 
 
-def get_barcode_for_single_cell(read1, read2, barcode_file, PrimerStructure1, StructureUMI, StructureBarcode, threadnum, outputfolder,barcode_threshold=100,barcodelength=0):
+def get_barcode_for_single_cell(read1, read2, barcode_file, PrimerStructure, StructureUMI, StructureBarcode, threadnum, outputfolder,barcode_threshold=100,barcodelength=0):
     barcode_threshold = int(barcode_threshold)
     os.makedirs(os.path.join(outputfolder, 'temps'), exist_ok=True)
     CleanFq1 = os.path.join(outputfolder, "temps/cleanfq1.fq")
@@ -658,8 +658,8 @@ def get_barcode_for_single_cell(read1, read2, barcode_file, PrimerStructure1, St
     temps_path = os.path.join(outputfolder, "temps/") 
     auto_bc_path = os.path.join(outputfolder, "temps", "auto_barcode.tsv")
     
-    prefixread1 = PrimerStructure1.split('_', 1)[0]
-    suffixread1 = PrimerStructure1.rsplit('_', 1)[-1]
+    prefixread1 = PrimerStructure.split('_', 1)[0]
+    suffixread1 = PrimerStructure.rsplit('_', 1)[-1]
     
     threadnum = str(threadnum)
     subprocess.run([ "cutadapt", "-e", "0.25", "-a", suffixread1, "--times", "4", "-g", prefixread1, "-j", threadnum, "-o", CleanFq2, "-p", CleanFq1, read2, read1])
