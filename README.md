@@ -79,7 +79,7 @@ The ASTRO script accepts parameters via the command line or a JSON file. The mai
     <tr>
       <td>gtffile</td>
       <td>Yes</td>
-      <td>Steps 2+4</td>
+      <td>Steps 2,3</td>
       <td>None</td>
       <td>Path to the GTF file</td>
     </tr>
@@ -102,11 +102,11 @@ The ASTRO script accepts parameters via the command line or a JSON file. The mai
       <td>Yes</td>
       <td>Step 1</td>
       <td>-</td>
-      <td> When manually_set_barcode_details is false, you must specify the positions of all spatial barcodes in order and join them with colon ":" in the option. You can describe each position in two ways: 
+      <td> When manually_set_barcode_details is false, you must specify the positions of all spatial barcodes in order and join them with colon ":" in the option. You can describe each position in two ways:<br>
       1. Barcode before/after a linker: 8_ATCCACGTGCTT or AACCAAGATCG_8 means the barcode is 8 bp before or after the linker, respectively. 
-      2. Barcode between two linkers: GAGGCCAAGATCG_8_GTGGCCGATGTTTCGC means the barcode is 8 bp long and lies between the two linkers. (Here, 8bp is the expected barcode length.).         
-      When manually_set_barcode_details is true, you still specify the positions for ASTRO to search spatial barcodes in order and join them with colon ":".
-       Then, 1. Barcode before/after a linker (search window), 20_ATCCACGTGCTT or AACCAAGATCG_20 indicates ASTRO will search within a 20-bp window before or after the linker, respectively. (The value 20 is not the expected barcode length.) 
+      2. Barcode between two linkers: GAGGCCAAGATCG_8_GTGGCCGATGTTTCGC means the barcode is 8 bp long and lies between the two linkers. (Here, 8bp is the expected barcode length.).<br>
+      When manually_set_barcode_details is true, you still specify the positions for ASTRO to search spatial barcodes in order and join them with colon ":".<br>
+      Then, 1. Barcode before/after a linker (search window), 20_ATCCACGTGCTT or AACCAAGATCG_20 indicates ASTRO will search within a 20-bp window before or after the linker, respectively. (The value 20 is not the expected barcode length.) 
        2. Barcode between two linkers (no explicit length): TTGAGAGGCCAAGATC...GTGGCCGATGTTTC omits the length; ASTRO will search for the barcode between the two linkers.
       </td>
     </tr>
@@ -135,9 +135,9 @@ The ASTRO script accepts parameters via the command line or a JSON file. The mai
       <td>7</td>
       <td>
         Specifies steps to execute; uses bitwise integers:<br>
-        1: Demultiplexing<br>
-        2: Genome Mapping<br>
-        4: Feature Counting and Filtering<br>
+        1: Step 1, Demultiplexing<br>
+        2: Step 2, Genome Mapping (Interm. files req: combine.fq)<br>
+        4: Step 3, Feature Counting and Filtering (Interm. files req: STAR/tempfiltered.bam)<br>
         For example, 7 = 1+2+4
       </td>
     </tr>
@@ -229,7 +229,7 @@ The ASTRO script accepts parameters via the command line or a JSON file. The mai
     <tr>
       <td>genes2check</td>
       <td>No</td>
-      <td>Step 4</td>
+      <td>Step 3</td>
       <td>False</td>
       <td>
       If provided (a text file listing suspect genes, e.g. piRNAs/miRNAs), ASTRO runs an advanced check before feature counting. Genes failing this check are removed from the GTF annotation, effectively excluding them from the final expression matrix.
