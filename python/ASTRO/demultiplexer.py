@@ -11,8 +11,26 @@ from collections import defaultdict, Counter
 import logging
 
 
-def singleCutadapt(barcodestr,outputfile,remainfa,threadnum):
+def singleCutadapt(barcodestr, outputfile, remainfa, threadnum):
+    """
+    Process FASTQ files using cutadapt to extract barcodes and UMIs based on structure definition.
 
+    This function parses a barcode structure string and applies cutadapt operations
+    to extract spatial barcodes and UMIs from sequencing reads. It handles both
+    adapter-based and position-based extraction methods.
+
+    Args:
+        barcodestr (str): Barcode structure definition string (e.g., "20_CGTTGGCTTCT_8")
+        outputfile (str): Base path for output files (not directly used)
+        remainfa (str): Path to input FASTQ file to process
+        threadnum (str): Number of threads for cutadapt operations
+
+    Returns:
+        None: Creates 'index.fastq' and 'UMI.fastq' files in the output directory
+
+    Raises:
+        SystemExit: If barcode format is invalid or contains unexpected characters
+    """
 
     def simple_fastq_iterator(handle):
         while True:
@@ -23,19 +41,25 @@ def singleCutadapt(barcodestr,outputfile,remainfa,threadnum):
             if not (title_line or seq_string or sep_line or qual_string):
                 break
             yield title_line[1:], seq_string, qual_string
-    
-    def cutfastq(filein,forward,length):
-        with (gzip.open(filein, "rt") if filein.endswith('.gz') else open(filein, "rt")) as in_handle: 
-            with open(filein+'.temp', "w") as out_handle:
+
+    def cutfastq(filein, forward, length):
+        with (
+            gzip.open(filein, "rt") if filein.endswith(".gz") else open(filein, "rt")
+        ) as in_handle:
+            with open(filein + ".temp", "w") as out_handle:
                 for title, seq, qual in simple_fastq_iterator(in_handle):
                     if forward:
                         new_seq = seq[0:length]
                         new_qual = qual[0:length]
-                        out_handle.write("@%s\n%s\n+\n%s\n" % (title, new_seq, new_qual))
+                        out_handle.write(
+                            "@%s\n%s\n+\n%s\n" % (title, new_seq, new_qual)
+                        )
                     else:
-                        new_seq = seq[-length:len(seq)]
-                        new_qual = qual[-length:len(qual)]
-                        out_handle.write("@%s\n%s\n+\n%s\n" % (title, new_seq, new_qual))
+                        new_seq = seq[-length : len(seq)]
+                        new_qual = qual[-length : len(qual)]
+                        out_handle.write(
+                            "@%s\n%s\n+\n%s\n" % (title, new_seq, new_qual)
+                        )
         os.remove(filein)
         os.rename(filein+'.temp', filein)
     def cutfastq_abs(srcfile, outfile, startpos, length):
@@ -51,28 +75,28 @@ def singleCutadapt(barcodestr,outputfile,remainfa,threadnum):
                         new_qual = qual[s:e]
                     out_handle.write(f"@{title}\n{new_seq}\n+\n{new_qual}\n")
     def combineFqs(outputfile,fqs):
-        iterators0 = [gzip.open(file_path, "rt") if file_path.endswith('.gz') else open(file_path) for file_path in fqs]
+        iterators0 = [
+            gzip.open(file_path, "rt") if file_path.endswith(".gz") else open(file_path)
+            for file_path in fqs
+        ]
         iterators = [simple_fastq_iterator(file) for file in iterators0]
-        with open(outputfile, 'w') as out_handle:
+        with open(outputfile, "w") as out_handle:
             for entries in zip(*iterators):
                 newseq = ""
                 newqual = ""
-                newtitle = ''
+                newtitle = ""
                 for title, seq, qual in entries:
                     newseq += seq
                     newqual += qual
-                    if newtitle != '' and newtitle != title:
+                    if newtitle != "" and newtitle != title:
                         print(fqs)
                         print(newtitle)
                         print(title)
-                        exit('Error: fastqs have different read name')
+                        exit("Error: fastqs have different read name")
                 out_handle.write("@%s\n%s\n+\n%s\n" % (title, newseq, newqual))
 
-
-
-
-    customsetting = '-j ' + threadnum
-    array4barcodes = re.split(':',barcodestr)
+    customsetting = "-j " + threadnum
+    array4barcodes = re.split(":", barcodestr)
 
     ii = 0
     linkfqs = []
@@ -101,20 +125,29 @@ def singleCutadapt(barcodestr,outputfile,remainfa,threadnum):
 
             else:
                 print(stri)
-                exit('Error: wrong barcode format: order error')
-
+                exit("Error: wrong barcode format: order error")
         elif len(array4input) == 1:
-            outputcommand = ['cutadapt'] + [customsetting] + ['-g'] + [array4input[0]] + ['-e'] + ['0.25'] + ['-o'] + [tempout] + [remainfa]
+            outputcommand = (
+                ["cutadapt"]
+                + [customsetting]
+                + ["-g"]
+                + [array4input[0]]
+                + ["-e"]
+                + ["0.25"]
+                + ["-o"]
+                + [tempout]
+                + [remainfa]
+            )
             result4out = subprocess.run(' '.join(outputcommand), shell=True, text=True, capture_output=True, check=True)
             logging.info("\n%s", result4out.stdout)
             linkfqs.append(tempout)
         else:
             print(stri)
-            exit('Error: wrong barcode format: order error')
+            exit("Error: wrong barcode format: order error")
         ii = ii + 1
 
     if len(linkfqs) >= 2:
-        combineFqs(outputfile,linkfqs)
+        combineFqs(outputfile, linkfqs)
         for fqi in linkfqs:
             os.remove(fqi)
     else:
@@ -122,50 +155,54 @@ def singleCutadapt(barcodestr,outputfile,remainfa,threadnum):
             os.rename(linkfqs[0], outputfile)
 
 
-
-
 def merge_chunk_to_tempfile(chunk_index, linesA, linesB, linesC, temp_dir):
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, dir=temp_dir, prefix=f"chunk_{chunk_index}_", suffix=".fastq") as tf:
-            ii = 0
-            for i in range(0, len(linesA), 4):
-                a1 = linesA[i].rstrip('\n')   # @readA
-                a2 = linesA[i+1].rstrip('\n') # SEQ
-                a3 = linesA[i+2].rstrip('\n') # +
-                a4 = linesA[i+3].rstrip('\n') # QUAL
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        delete=False,
+        dir=temp_dir,
+        prefix=f"chunk_{chunk_index}_",
+        suffix=".fastq",
+    ) as tf:
+        ii = 0
+        for i in range(0, len(linesA), 4):
+            a1 = linesA[i].rstrip("\n")  # @readA
+            a2 = linesA[i + 1].rstrip("\n")  # SEQ
+            a3 = linesA[i + 2].rstrip("\n")  # +
+            a4 = linesA[i + 3].rstrip("\n")  # QUAL
 
 
-                b1 = linesB[i].rstrip('\n')
-                b2 = linesB[i+1].rstrip('\n')
-                b3 = linesB[i+2].rstrip('\n')
-                b4 = linesB[i+3].rstrip('\n')
+            b1 = linesB[i].rstrip("\n")
+            b2 = linesB[i + 1].rstrip("\n")
+            b3 = linesB[i + 2].rstrip("\n")
+            b4 = linesB[i + 3].rstrip("\n")
 
+            c1 = linesC[i].rstrip("\n")
+            c2 = linesC[i + 1].rstrip("\n")
+            c3 = linesC[i + 2].rstrip("\n")
+            c4 = linesC[i + 3].rstrip("\n")
 
-                c1 = linesC[i].rstrip('\n')
-                c2 = linesC[i+1].rstrip('\n')
-                c3 = linesC[i+2].rstrip('\n')
-                c4 = linesC[i+3].rstrip('\n')
-
-                a1 = a1.split(' ')[0]
-                b1 = b1.split(' ')[0]
-                c1 = c1.split(' ')[0]
-                if a1 != b1 or a1 != c1:
-                    raise ValueError(f"Read names do not match: {a1} {b1} {c1}")
-
-                # filter out empty reads
-                if len(a2) == 0:
+            a1 = a1.split(" ")[0]
+            b1 = b1.split(" ")[0]
+            c1 = c1.split(" ")[0]
+            if a1 != b1 or a1 != c1:
+                raise ValueError(f"Read names do not match: {a1} {b1} {c1}")
+            
+            # filter out empty reads
+            if len(a2) == 0:
                     continue
-                
-                new_read_name = f"@{chunk_index}_{ii}---{b2}---{c2}---{b4}{c4}"
-                ii += 1
 
-                new_line1 = new_read_name
-                new_line2 = a2
-                new_line3 = a3
-                new_line4 = a4
+            new_read_name = f"@{chunk_index}_{ii}---{b2}---{c2}---{b4}{c4}"
+            ii += 1
 
-                tf.write(f"{new_line1}\n{new_line2}\n{new_line3}\n{new_line4}\n")
+            new_line1 = new_read_name
+            new_line2 = a2
+            new_line3 = a3
+            new_line4 = a4
 
-        return tf.name
+            tf.write(f"{new_line1}\n{new_line2}\n{new_line3}\n{new_line4}\n")
+
+    return tf.name
+
 
 def parse4barcodeposition(barcodeposition):
     startpos, endpos = 0, 0
@@ -269,12 +306,17 @@ def read_in_chunks(fA, fB, fC, chunk_num_reads):
 def Fqs2_1fq(fa, fb, fc, out, nproc, chunk_size, temp_dir, barcodeposition='NA',barcodelengthrange='NA',barcode_dict={}):
 
         pool = mp.Pool(processes=nproc)
+        
         if barcodeposition == 'NA':
             temp_files = []   
             with open(fa, 'r') as fA, open(fb, 'r') as fB, open(fc, 'r') as fC:
                 async_results = []
-                for (chunk_index, linesA, linesB, linesC) in read_in_chunks(fA, fB, fC, chunk_num_reads=chunk_size):
-                    res = pool.apply_async(merge_chunk_to_tempfile, (chunk_index, linesA, linesB, linesC, temp_dir))
+                for (chunk_index, linesA, linesB, linesC) in read_in_chunks(
+                    fA, fB, fC, chunk_num_reads=chunk_size
+                ):
+                    res = pool.apply_async(
+                        merge_chunk_to_tempfile, (chunk_index, linesA, linesB, linesC, temp_dir)
+                    )
                     async_results.append(res)
             pool.close()
 
@@ -306,6 +348,7 @@ def Fqs2_1fq(fa, fb, fc, out, nproc, chunk_size, temp_dir, barcodeposition='NA',
 
             pool.join()
 
+            # write direct-get records and remove related temp files
             with open(out+'0', 'w') as fw:
                for tf in temp_files_final:
                     with open(tf, 'r') as f:
@@ -317,6 +360,8 @@ def Fqs2_1fq(fa, fb, fc, out, nproc, chunk_size, temp_dir, barcodeposition='NA',
                     os.remove(tf)
                 except Exception as e:
                     sys.stderr.write(f"Warning: Could not remove temp file {tf}: {e}\n")
+        
+        # write reference-mapped records and remove related temp files
         with open(out, 'w') as fw:
             for tf in temp_files:
                 with open(tf, 'r') as f:
@@ -329,50 +374,51 @@ def Fqs2_1fq(fa, fb, fc, out, nproc, chunk_size, temp_dir, barcodeposition='NA',
             except Exception as e:
                 sys.stderr.write(f"Warning: Could not remove temp file {tf}: {e}\n")
         
-        
-
-
+    
 
 
 def filter_sam_NH(input_sam, output_fq):
-    with open(input_sam, 'r') as infile, open(output_fq, 'w') as outfile:
+    with open(input_sam, "r") as infile, open(output_fq, "w") as outfile:
         for line in infile:
-            if not line.startswith('@'):
-                line = line.split('\t')
+            if not line.startswith("@"):
+                line = line.split("\t")
                 spatialcode = line[2]
-                if spatialcode == '*':
+                if spatialcode == "*":
                     continue
-                if (int(line[1]) & 16) != 0: 
+                if (int(line[1]) & 16) != 0:
                     continue
                 for tag in line[11:]:
-                        if tag.startswith('NH:i:'):
-                            nh_value = int(tag.split(':', 2)[2])
-                        break
+                    if tag.startswith("NH:i:"):
+                        nh_value = int(tag.split(":", 2)[2])
+                    break
                 if nh_value >= 2:
                     continue
-                arrays = line[0].split('---', maxsplit=3)
+                arrays = line[0].split("---", maxsplit=3)
                 read_name = arrays[0]
-                read1seq  = arrays[1]
+                read1seq = arrays[1]
                 lenread1 = len(read1seq)
-                if lenread1 <  10:
+                if lenread1 < 10:
                     continue
                 UMIseq = arrays[2]
                 read1qual = arrays[3][:lenread1]
-                read_name2 = '@' + read_name + '|:_:|' + spatialcode + ':' + UMIseq
-                line = read_name2 + '\n' + read1seq + '\n' + '+' + '\n' + read1qual + '\n'
+                read_name2 = "@" + read_name + "|:_:|" + spatialcode + ":" + UMIseq
+                line = (
+                    read_name2 + "\n" + read1seq + "\n" + "+" + "\n" + read1qual + "\n"
+                )
                 outfile.write(line)
 
+
 def filter_sam_nbhd(input_sam, output_fq):
-    previousname = ''
-    previousloca = ''
+    previousname = ""
+    previousloca = ""
     wrongmultiple = 0
-    rdyline = ''
-    with open(input_sam, 'r') as infile, open(output_fq, 'w') as outfile:
+    rdyline = ""
+    with open(input_sam, "r") as infile, open(output_fq, "w") as outfile:
         for line in infile:
-            if not line.startswith('@'):
-                line = line.split('\t')
+            if not line.startswith("@"):
+                line = line.split("\t")
                 spatialcode = line[2]
-                arrays = line[0].split('---', maxsplit=3)
+                arrays = line[0].split("---", maxsplit=3)
                 read_name = arrays[0]
                 read2seq  = arrays[1]
                 lenread1 = len(read2seq)
@@ -382,7 +428,16 @@ def filter_sam_nbhd(input_sam, output_fq):
                     UMIseq = arrays[2]
                     read2qual = arrays[3][:lenread1]
                     read_name2 = '@' + read_name + '|:_:|' + spatialcode + ':' + UMIseq
-                    thisline = read_name2 + '\n' + read2seq + '\n' + '+' + '\n' + read2qual + '\n'
+                    thisline = (
+                        read_name2 
+                        + '\n' 
+                        + read2seq 
+                        + '\n' 
+                        + '+' 
+                        + '\n' 
+                        + read2qual 
+                        + '\n'
+                    )
                 if previousname != read_name:
                     if wrongmultiple == 0:
                         outfile.write(rdyline)
@@ -391,14 +446,16 @@ def filter_sam_nbhd(input_sam, output_fq):
                     previousname = read_name
                     previousloca = spatialcode
                 else:
-                    #if previousloca != spatialcode:
-                        wrongmultiple = 1
+                    # if previousloca != spatialcode:
+                    wrongmultiple = 1
         if wrongmultiple == 0:
             outfile.write(rdyline)
+
+
 def process_chunk(chunk_lines):
     read_count = set()
-    read_delete = set()  
-    line = chunk_lines[0] 
+    read_delete = set()
+    line = chunk_lines[0]
     read_name0 = line
     for line in chunk_lines[1:]:
         read_name = line
@@ -410,6 +467,8 @@ def process_chunk(chunk_lines):
     if read_name0 not in read_delete:
         read_count.add(read_name0)
     return read_count, read_delete
+
+
 def total_delete(all_stats):
     total_read_count = set()
     total_read_delete = set()
@@ -422,46 +481,55 @@ def total_delete(all_stats):
         for read_name in read_delete:
             total_read_delete.add(read_name)
     return total_read_delete
+
+
 def read_in_chunks_from_sam(filename, chunk_size):
     chunk = []
-    with open(filename, 'r') as file:
+    with open(filename, "r") as file:
         for line in file:
-            if line.startswith('@'):
+            if line.startswith("@"):
                 continue
-            lines = line.split('\t')
-            if lines[2] == '*':
+            if (int(line.split("\t")[1]) & 16) != 0:
                 continue
-            #if (int(lines[1]) & 16) != 0: 
-            #    continue
-            read_name = line.split('\t')[0].split('---')[0]
+            read_name = line.split("\t")[0].split("---")[0]
             chunk.append(read_name)
             if len(chunk) >= chunk_size:
                 yield chunk
                 chunk = []
         if chunk:
             yield chunk
+
+
 def filter_sam0(input_sam, reads_to_remove, output_fq):
-    with open(input_sam, 'r') as infile, open(output_fq, 'w') as outfile:
+    with open(input_sam, "r") as infile, open(output_fq, "w") as outfile:
         for line in infile:
-            if not line.startswith('@'):
-                lines = line.split('\t')
-                spatialcode = lines[2]
-                if spatialcode == '*':
+            if not line.startswith("@"):
+                spatialcode = line.split("\t")[2]
+                if spatialcode == "*":
                     continue
-                if (int(lines[1]) & 16) != 0: 
-                    continue
-                arrays = lines[0].split('---', maxsplit=3)
+                arrays = line.split("\t")[0].split("---", maxsplit=3)
                 read_name = arrays[0]
                 if read_name not in reads_to_remove:
-                    read1seq  = arrays[1]
+                    read1seq = arrays[1]
                     lenread1 = len(read1seq)
-                    if lenread1 <  10:
+                    if lenread1 < 10:
                         continue
                     UMIseq = arrays[2]
                     read1qual = arrays[3][:lenread1]
-                    read_name2 = '@' + read_name + '|:_:|' + spatialcode + ':' + UMIseq
-                    line = read_name2 + '\n' + read1seq + '\n' + '+' + '\n' + read1qual + '\n'
+                    read_name2 = "@" + read_name + "|:_:|" + spatialcode + ":" + UMIseq
+                    line = (
+                        read_name2
+                        + "\n"
+                        + read1seq
+                        + "\n"
+                        + "+"
+                        + "\n"
+                        + read1qual
+                        + "\n"
+                    )
                     outfile.write(line)
+
+
 def filter_sam(input_sam, output_fq, num_processes, chunk_size):
     pool = mp.Pool(processes=int(num_processes))
     chunks = read_in_chunks_from_sam(input_sam, chunk_size=chunk_size)
@@ -471,11 +539,8 @@ def filter_sam(input_sam, output_fq, num_processes, chunk_size):
 
     reads_to_remove = total_delete(results)
     filter_sam0(input_sam, reads_to_remove, output_fq)
-    
 
-
-
-    #def filter_sam_chunk(chunk_lines, chunk_index, reads_to_remove, temp_dir):
+    # def filter_sam_chunk(chunk_lines, chunk_index, reads_to_remove, temp_dir):
     #    with tempfile.NamedTemporaryFile(mode='w', delete=False, dir=temp_dir, prefix=f"chunk_{chunk_index}_", suffix=".fastq") as tf:
     #        for line in chunk_lines:
     #            if not line.startswith('@'):
@@ -489,10 +554,10 @@ def filter_sam(input_sam, output_fq, num_processes, chunk_size):
     #                    read_name2 = '@' + read_name + '|:_:|' + spatialcode + ':' + UMIseq
     #                    line = read_name2 + '\n' + read1seq + '\n' + '+' + '\n' + read1qual + '\n'
     #                    tf.write(line)
-    #def worker_init(temp_dir):
+    # def worker_init(temp_dir):
     #    global TEMP_DIR
-    #    TEMP_DIR = temp_dir 
-    
+    #    TEMP_DIR = temp_dir
+
     #    temp_dir = 'temp_dir/'
     #    if not temp_dir:
     #        temp_dir = tempfile.gettempdir()
@@ -501,7 +566,7 @@ def filter_sam(input_sam, output_fq, num_processes, chunk_size):
     #    for (chunk_index, chunk_lines) in read_in_chunks_from_sam2(input_sam, chunk_size=chunk_size):
     #        res = pool.apply_async(filter_sam_chunk, (chunk_lines, chunk_index, reads_to_remove, temp_dir) )
     #    async_results.append(res)
-    #    temp_files = []    
+    #    temp_files = []
     #    pool.close()
     #    for r in async_results:
     #            tempfile_path = r.get()
@@ -519,14 +584,14 @@ def filter_sam(input_sam, output_fq, num_processes, chunk_size):
     #            os.remove(tf)
     #        except Exception as e:
     #            sys.stderr.write(f"Warning: Could not remove temp file {tf}: {e}\n")
-     #def read_in_chunks_from_sam2(filename, chunk_size):
+    # def read_in_chunks_from_sam2(filename, chunk_size):
     #    chunk_index = 0
     #    chunk = []
     #    with open(filename, 'r') as file:
     #        for line in file:
     #            if line.startswith('@'):
     #                continue
-    #            if (int(line.split('\t')[1]) & 16) != 0: 
+    #            if (int(line.split('\t')[1]) & 16) != 0:
     #                continue
     #            read_name = line.split('\t')[0].split('---')[0]
     #            chunk.append(read_name)
@@ -537,7 +602,46 @@ def filter_sam(input_sam, output_fq, num_processes, chunk_size):
     #        if chunk:
     #            yield (chunk_index, chunk)
 
-def demultiplexing(read1,read2, barcode_file, PrimerStructure, StructureUMI, StructureBarcode, threadnum, outputfolder, limitOutSAMoneReadBytes4barcodeMapping, barcodeposition='NA', barcodelengthrange='NA'):
+def demultiplexing(
+    read1,
+    read2, 
+    barcode_file, 
+    PrimerStructure, 
+    StructureUMI, 
+    StructureBarcode, 
+    threadnum, 
+    outputfolder, 
+    limitOutSAMoneReadBytes4barcodeMapping, 
+    barcodeposition='NA', 
+    barcodelengthrange='NA'):
+
+    """
+    Perform demultiplexing of spatial transcriptomics sequencing data.
+
+    This function processes paired-end FASTQ files to:
+    1. Extract and trim primers from R1 reads
+    2. Extract UMIs and spatial barcodes from R2 reads
+    3. Align barcodes to known spatial coordinates
+    4. Generate demultiplexed FASTQ files for downstream analysis
+
+    Args:
+        R1 (str): Path to R1 FASTQ file containing RNA sequences
+        R2 (str): Path to R2 FASTQ file containing barcodes and UMIs
+        barcode_file (str): Path to file with barcode-coordinate mappings
+        PrimerStructure1 (str): R1 primer structure (e.g., "PRIMER_b_A{10}N{150}")
+        StructureUMI (str): UMI extraction structure definition
+        StructureBarcode (str): Barcode extraction structure definition
+        threadnum (int): Number of threads for parallel processing
+        outputfolder (str): Output directory path
+
+    Returns:
+        None: Creates demultiplexed files in the output directory
+
+    Creates:
+        - combine.fq: Combined demultiplexed reads
+        - temps/: Directory with intermediate processing files
+        - temps/barcode_db/: Bowtie index for barcode alignment
+    """
     
     os.makedirs(os.path.join(outputfolder, 'temps'), exist_ok=True)
     CleanFq1 = os.path.join(outputfolder, "temps/CleanFq1.fq")
@@ -571,18 +675,18 @@ def demultiplexing(read1,read2, barcode_file, PrimerStructure, StructureUMI, Str
             read2, read1], text=True, capture_output=True, check=True)
         logging.info("cutadapt for mRNA read log:\n%s", result4out.stdout)
     else:
-        def compress_one(src, dst):
+        def decompress_one(src, dst):
             if not os.path.exists(str(src)):
                 return
             tmp = dst + ".tmp"
             if which("pigz"):
                 with open(tmp, "wb") as out:
-                    subprocess.run(["pigz", "-p", str(threads), "-c", str(src)], check=True, stdout=out)
+                    subprocess.run(["pigz", "-d", "-p", str(threads), "-c", str(src)], check=True, stdout=out)
             elif which("bgzip"):
                 with open(tmp, "wb") as out:
-                    subprocess.run(["bgzip", "-@", str(threads), "-c", str(src)], check=True, stdout=out)
+                    subprocess.run(["bgzip", "-d", "-@", str(threads), "-c", str(src)], check=True, stdout=out)
             else:
-                with open(src, "rb") as f_in, gzip.open(tmp, "wb") as f_out:
+                with gzip.open(src, "rb") as f_in, open(tmp, "wb") as f_out:
                     shutil.copyfileobj(f_in, f_out)
             os.replace(tmp, dst)   
             os.remove(src)
@@ -671,7 +775,18 @@ def demultiplexing(read1,read2, barcode_file, PrimerStructure, StructureUMI, Str
     logging.info(f"demultiplexing step ends\n")
 
 
-def get_barcode_for_single_cell(read1, read2, barcode_file, PrimerStructure, StructureUMI, StructureBarcode, threadnum, outputfolder,barcode_threshold=100,barcodelength=0):
+def get_barcode_for_single_cell(
+    read1, 
+    read2, 
+    barcode_file, 
+    PrimerStructure, 
+    StructureUMI, 
+    StructureBarcode, 
+    threadnum, 
+    outputfolder,
+    barcode_threshold=100,
+    barcodelength=0
+):
     barcode_threshold = int(barcode_threshold)
     os.makedirs(os.path.join(outputfolder, 'temps'), exist_ok=True)
     CleanFq1 = os.path.join(outputfolder, "temps/cleanfq1.fq")
@@ -681,14 +796,16 @@ def get_barcode_for_single_cell(read1, read2, barcode_file, PrimerStructure, Str
     barcode_db_path = os.path.join(outputfolder, "temps/barcode_db")
     index_fq = os.path.join(outputfolder, "temps/index.fastq")
     UMI_fq = os.path.join(outputfolder, "temps/UMI.fastq")
-    temps_path = os.path.join(outputfolder, "temps/") 
+    temps_path = os.path.join(outputfolder, "temps/")
     auto_bc_path = os.path.join(outputfolder, "temps", "auto_barcode.tsv")
     
     prefixread1 = PrimerStructure.split('_', 1)[0]
     suffixread1 = PrimerStructure.rsplit('_', 1)[-1]
     
     threadnum = str(threadnum)
-    subprocess.run([ "cutadapt", "-e", "0.25", "-a", suffixread1, "--times", "4", "-g", prefixread1, "-j", threadnum, "-o", CleanFq2, "-p", CleanFq1, read2, read1])
+    subprocess.run(
+        [ "cutadapt", "-e", "0.25", "-a", suffixread1, "--times", "4", "-g", prefixread1, "-j", threadnum, "-o", CleanFq2, "-p", CleanFq1, read2, read1]
+    )
     singleCutadapt(StructureUMI,UMI_fq,CleanFq1,threadnum)
     singleCutadapt(StructureBarcode,index_fq,CleanFq1,threadnum)
 
@@ -699,25 +816,25 @@ def get_barcode_for_single_cell(read1, read2, barcode_file, PrimerStructure, Str
             l1 = fq.readline()
             if not l1:
                 break
-            seq_line  = fq.readline()
+            seq_line = fq.readline()
             plus_line = fq.readline()
             qual_line = fq.readline()
             if not qual_line:
                 break
             yield seq_line.strip()
 
-    with open(index_fq, 'r') as fin:
+    with open(index_fq, "r") as fin:
         for seq in fastq_iter(fin):
             bar_counter[seq] += 1
 
     if barcode_file != "notavailable":
         whitelist = set()
-        with open(barcode_file, 'r') as f:
+        with open(barcode_file, "r") as f:
             for line in f:
                 line = line.strip()
-                if not line: 
+                if not line:
                     continue
-                arr = line.split('\t')
+                arr = line.split("\t")
                 user_bc = arr[0]
                 whitelist.add(user_bc)
 
@@ -727,7 +844,7 @@ def get_barcode_for_single_cell(read1, read2, barcode_file, PrimerStructure, Str
                 continue
             if ct < barcode_threshold:
                 break
-            if barcodelength>0 and len(bc)!=barcodelength:
+            if barcodelength > 0 and len(bc) != barcodelength:
                 continue
             filtered.append(bc)
     else:
@@ -735,11 +852,11 @@ def get_barcode_for_single_cell(read1, read2, barcode_file, PrimerStructure, Str
         for bc, ct in bar_counter.most_common():
             if ct < barcode_threshold:
                 break
-            if barcodelength>0 and len(bc)!=barcodelength:
+            if barcodelength > 0 and len(bc) != barcodelength:
                 continue
             filtered.append(bc)
-    
-    with open(auto_bc_path, 'w') as bf:
+
+    with open(auto_bc_path, "w") as bf:
         i = 1
         for bc in filtered:
             bf.write(f"{bc}\t{i}\t{i}\n")

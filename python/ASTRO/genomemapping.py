@@ -8,7 +8,36 @@ import multiprocessing as mp
 import tempfile
 import logging
 
-def star_align(genome_dir, read_files_in, out_prefix, run_thread_n=16, gtf_file=None, extra_params=None):
+
+def star_align(
+    genome_dir,
+    read_files_in,
+    out_prefix,
+    run_thread_n=16,
+    gtf_file=None,
+    extra_params=None,
+):
+    """
+    Perform RNA-seq alignment using STAR aligner.
+
+    Aligns RNA sequencing reads to a reference genome using STAR with
+    customizable parameters. Supports GTF annotation for splice junction
+    discovery and various output formats.
+
+    Args:
+        genome_dir (str): Path to STAR genome index directory
+        read_files_in (str or list): Path(s) to input FASTQ file(s)
+        out_prefix (str): Output file prefix for STAR results
+        run_thread_n (int, optional): Number of threads to use. Defaults to 16.
+        gtf_file (str, optional): Path to GTF annotation file. Defaults to None.
+        extra_params (str or list, optional): Additional STAR parameters. Defaults to None.
+
+    Returns:
+        None: STAR output files are created with the specified prefix
+
+    Raises:
+        subprocess.CalledProcessError: If STAR alignment fails
+    """
 
     if extra_params is None:
         extra_params = []
@@ -19,29 +48,43 @@ def star_align(genome_dir, read_files_in, out_prefix, run_thread_n=16, gtf_file=
     if gtf_file is not None and gtf_file != "NA":
         gtf_part = ["--sjdbGTFfile", gtf_file]
 
-    cmd = [
-        "STAR",
-        "--genomeDir", genome_dir,
-        "--readFilesIn", read_files_in,
-        "--outFileNamePrefix", out_prefix,
-        "--runThreadN", str(run_thread_n),
-    ] + gtf_part + extra_params
+    cmd = (
+        [
+            "STAR",
+            "--genomeDir",
+            genome_dir,
+            "--readFilesIn",
+            read_files_in,
+            "--outFileNamePrefix",
+            out_prefix,
+            "--runThreadN",
+            str(run_thread_n),
+        ]
+        + gtf_part
+        + extra_params
+    )
 
     result4out = subprocess.run(cmd, text=True, capture_output=True, check=True)
     logging.info("STAR for genome mapping:\n%s", result4out.stdout)
 
 
-def dedup_bam_samtools_markdup_2step(input_bam, output_bam, threads=1):
+def dedup_bam_samtools_markdup_2step(
+    input_bam, output_bam, threads=1
+):
     markdup_bam = output_bam + ".markdup.bam"
-    regex = r'.+\|:_:\|(.+)$'
+    regex = r".+\|:_:\|(.+)$"
     markdup_cmd = [
-        "samtools", "markdup",
+        "samtools",
+        "markdup",
         "-r",
-        "--barcode-rgx", regex,
-        "-@", str(threads),
-        "-O", "BAM",         
+        "--barcode-rgx",
+        regex,
+        "-@",
+        str(threads),
+        "-O",
+        "BAM",
         input_bam,
-        markdup_bam
+        markdup_bam,
     ]
     logging.info(f"[dedup_bam_2step] Step1 => {' '.join(markdup_cmd)}")
     ret = subprocess.run(markdup_cmd)
@@ -65,11 +108,11 @@ def dedup_bam_samtools_markdup_2step(input_bam, output_bam, threads=1):
     with open(temp_sam, "r") as f_in, open(final_sam, "w") as f_out:
         for line in f_in:
             line = line.rstrip("\n")
-            if line.startswith('@'):
+            if line.startswith("@"):
                 f_out.write(line + "\n")
                 continue
 
-            fields = line.split('\t')
+            fields = line.split("\t")
             flag = int(fields[1])
             qname = fields[0]
 
@@ -86,7 +129,7 @@ def dedup_bam_samtools_markdup_2step(input_bam, output_bam, threads=1):
             if len(splitted) == 2:
                 oldNamePart, posPart = splitted
             else:
-                oldNamePart, posPart = ("","")
+                oldNamePart, posPart = ("", "")
 
             if oldNamePart in dedup_dict:
                 continue
@@ -126,13 +169,14 @@ def dedup_bam_samtools_markdup_2step(input_bam, output_bam, threads=1):
 
     logging.info(f"[dedup_bam_2step] Done => {output_bam}")
 
-def dedup_chunk(chunk_index, lines, temp_dir):    
+
+def dedup_chunk(chunk_index, lines, temp_dir):
     global_index = 0
-    prev_qname   = ""
-    records      = []
-    best_AS      = -999999
+    prev_qname = ""
+    records = []
+    best_AS = -999999
     best_readlen = 0
-    best_OQ      = ""
+    best_OQ = ""
 
     def flush_group(output):
         nonlocal global_index, prev_qname, records, best_AS, best_readlen, best_OQ
@@ -143,7 +187,7 @@ def dedup_chunk(chunk_index, lines, temp_dir):
         new_prefix = f"{global_index}_{prev_qname}:{best_AS}:{best_readlen}"
 
         for rec_line in records:
-            fds = rec_line.split('\t')
+            fds = rec_line.split("\t")
             oq_val = ""
             oq_tag_idx = -1
             for i in range(11, len(fds)):
@@ -159,19 +203,25 @@ def dedup_chunk(chunk_index, lines, temp_dir):
                 output.write("\t".join(fds) + "\n")
 
         records.clear()
-        best_AS      = -999999
+        best_AS = -999999
         best_readlen = 0
-        best_OQ      = ""
-        prev_qname   = ""
+        best_OQ = ""
+        prev_qname = ""
 
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, dir=temp_dir, prefix=f"chunk_{chunk_index}_", suffix=".txt") as fw:
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        delete=False,
+        dir=temp_dir,
+        prefix=f"chunk_{chunk_index}_",
+        suffix=".txt",
+    ) as fw:
         for line in lines:
             line = line.rstrip("\n")
-            if line.startswith('@'):
-                fw.write(line + '\n')
+            if line.startswith("@"):
+                fw.write(line + "\n")
                 continue
 
-            fds = line.split('\t')
+            fds = line.split("\t")
             qname = fds[0]
 
             if qname != prev_qname:
@@ -190,7 +240,7 @@ def dedup_chunk(chunk_index, lines, temp_dir):
                     ASv = int(tag[5:])
 
             if ASv > best_AS:
-                best_AS      = ASv
+                best_AS = ASv
                 best_readlen = readlen
                 OQv = ""
                 for tag in fds[11:]:
@@ -202,7 +252,9 @@ def dedup_chunk(chunk_index, lines, temp_dir):
     return fw.name
 
 
-def parallel_dedup(cmd_collated_view, cmd_final_write, nproc=4, chunk_size=100000, temp_dir="/tmp"):
+def parallel_dedup(
+    cmd_collated_view, cmd_final_write, nproc=4, chunk_size=100000, temp_dir="/tmp"
+):
 
     pool = mp.Pool(processes=nproc)
     proc_in2 = subprocess.Popen(cmd_collated_view, stdout=subprocess.PIPE, text=True)
@@ -216,19 +268,19 @@ def parallel_dedup(cmd_collated_view, cmd_final_write, nproc=4, chunk_size=10000
     def flush_buffer_to_pool(buf, idx):
         return pool.apply_async(dedup_chunk, (idx, buf, temp_dir))
 
-    prev_qname = ''
+    prev_qname = ""
     for line in proc_in2.stdout:
         line = line.rstrip("\n")
 
         if len(lines_buffer) >= chunk_size:
-            qname = line.split('\t')[0]
-            if prev_qname != '' and prev_qname != qname:
+            qname = line.split("\t")[0]
+            if prev_qname != "" and prev_qname != qname:
                 res = flush_buffer_to_pool(lines_buffer, chunk_index)
                 async_results.append(res)
                 lines_buffer = []
                 chunk_index += 1
-                prev_qname = ''
-            elif prev_qname == '':
+                prev_qname = ""
+            elif prev_qname == "":
                 prev_qname = qname
             lines_buffer.append(line)
         else:
@@ -251,7 +303,7 @@ def parallel_dedup(cmd_collated_view, cmd_final_write, nproc=4, chunk_size=10000
 
     proc_out2 = subprocess.Popen(cmd_final_write, stdin=subprocess.PIPE, text=True)
     for tf in temp_files:
-        with open(tf, 'r') as f:
+        with open(tf, "r") as f:
             for line in f:
                 proc_out2.stdin.write(line)
     proc_out2.stdin.close()
@@ -267,40 +319,53 @@ def parallel_dedup(cmd_collated_view, cmd_final_write, nproc=4, chunk_size=10000
     logging.info("[INFO] parallel_sam_view done.")
 
 
-def dedup_bam_own(input_bam, output_bam, threads=1, temp_dir = '/tmp', chunk_size=100000):
+def dedup_bam_own(
+    input_bam,
+    output_bam,
+    threads=1,
+    temp_dir="/tmp",
+    chunk_size=100000
+):
     filtered_bam = f"{input_bam}.mappedOnly.bam"
-    cmd_filter = [
-        "samtools", "view",
-        "-b", "-F", "4",
-        input_bam,
-        "-o", filtered_bam
-    ]
+    cmd_filter = ["samtools", "view", "-b", "-F", "4", input_bam, "-o", filtered_bam]
     logging.info(f"[v2] Step0: Filtering unmapped => {' '.join(cmd_filter)}")
     ret = subprocess.run(cmd_filter)
     if ret.returncode != 0:
         raise RuntimeError(f"[Error] samtools view -F 4 failed on {input_bam}")
 
     temp_renamed_bam = f"{output_bam}.renamed.bam"
-    cmd_view  = ["samtools", "view", "-h", filtered_bam]
-    cmd_write = ["samtools", "view", "-b", '-@', str(int(threads)-1), "-o", temp_renamed_bam, "-"]
+    cmd_view = ["samtools", "view", "-h", filtered_bam]
+    cmd_write = [
+        "samtools",
+        "view",
+        "-b",
+        "-@",
+        str(int(threads) - 1),
+        "-o",
+        temp_renamed_bam,
+        "-",
+    ]
 
     logging.info("[v2] Step1: Renaming QNAME => bc+UMI, storing old in OQ:Z:")
-    with subprocess.Popen(cmd_view, stdout=subprocess.PIPE, text=True) as proc_in, \
-         subprocess.Popen(cmd_write, stdin=subprocess.PIPE, text=True) as proc_out:
+    with subprocess.Popen(
+        cmd_view, stdout=subprocess.PIPE, text=True
+    ) as proc_in, subprocess.Popen(
+        cmd_write, stdin=subprocess.PIPE, text=True
+    ) as proc_out:
 
         for line in proc_in.stdout:
             line = line.rstrip("\n")
-            if line.startswith('@'):
+            if line.startswith("@"):
                 proc_out.stdin.write(line + "\n")
                 continue
 
-            fields = line.split('\t')
+            fields = line.split("\t")
             old_qname = fields[0]
 
             if "|:_:|" in old_qname:
                 splitted = old_qname.split("|:_:|", 1)
-                oldName  = splitted[0]
-                bcumi    = splitted[1]
+                oldName = splitted[0]
+                bcumi = splitted[1]
                 fields[0] = bcumi
                 fields.append(f"OQ:Z:{oldName}")
 
@@ -314,10 +379,13 @@ def dedup_bam_own(input_bam, output_bam, threads=1, temp_dir = '/tmp', chunk_siz
 
     temp_collated_bam = f"{output_bam}.collated.bam"
     cmd_collate = [
-        "samtools", "collate",
-        "-@", str(threads),
-        "-o", temp_collated_bam,
-        temp_renamed_bam
+        "samtools",
+        "collate",
+        "-@",
+        str(threads),
+        "-o",
+        temp_collated_bam,
+        temp_renamed_bam,
     ]
     logging.info(f"[v2] Step2: Collate => {' '.join(cmd_collate)}")
     ret_collate = subprocess.run(cmd_collate)
@@ -327,9 +395,15 @@ def dedup_bam_own(input_bam, output_bam, threads=1, temp_dir = '/tmp', chunk_siz
     logging.info("[v2] Step3: flush group => keep best AS => final rename => out.bam")
 
     cmd_collated_view = ["samtools", "view", "-h", temp_collated_bam]
-    cmd_final_write   = ["samtools", "view", "-b", "-o", output_bam, "-"]
-    
-    parallel_dedup(cmd_collated_view, cmd_final_write, nproc=threads, chunk_size=chunk_size, temp_dir=temp_dir)
+    cmd_final_write = ["samtools", "view", "-b", "-o", output_bam, "-"]
+
+    parallel_dedup(
+        cmd_collated_view,
+        cmd_final_write,
+        nproc=threads,
+        chunk_size=chunk_size,
+        temp_dir=temp_dir,
+    )
 
     os.remove(filtered_bam)
     os.remove(temp_renamed_bam)
@@ -337,20 +411,46 @@ def dedup_bam_own(input_bam, output_bam, threads=1, temp_dir = '/tmp', chunk_siz
 
     logging.info(f"[v2] Done => {output_bam}")
 
+
 def collate_bam(input_bam, output_bam, threads=1):
     logging.info(f"[samtools_collate] Collating {input_bam} => {output_bam} (threads={threads})")
-    result = subprocess.run([
-        "samtools", "collate",
-        "-@", str(threads),
-        "-o", output_bam,
-        input_bam
-    ])
+    result = subprocess.run(
+        ["samtools", "collate", "-@", str(threads), "-o", output_bam, input_bam]
+    )
     if result.returncode != 0:
         raise RuntimeError("[samtools_collate] samtools collate failed.")
     logging.info("[samtools_collate] Done.")
 
 
 def genomemapping(starref, gtffile, threadnum, options, outputfolder, STARparamfile='NA'):
+    """
+    Perform genome mapping using STAR aligner and optional duplicate removal.
+
+    This function handles the complete genome mapping workflow:
+    1. STAR alignment of reads to reference genome
+    2. BAM file sorting and indexing
+    3. Optional duplicate removal using samtools markdup or custom logic
+    4. Quality filtering and final BAM processing
+
+    Args:
+        starref (str): Path to STAR genome index directory
+        gtffile (str): Path to GTF annotation file
+        threadnum (int): Number of threads for parallel processing
+        options (str): Processing options:
+            - 'M': Use samtools markdup for duplicate removal
+            - Other options for custom processing modes
+        outputfolder (str): Output directory path
+        STARparamfile (str, optional): Path to file with custom STAR parameters.
+                                     Defaults to "NA" (use default parameters).
+
+    Returns:
+        None: Creates aligned BAM files and logs in the output directory
+
+    Creates:
+        - STAR/: Directory with STAR alignment outputs
+        - genomemapping.log: Log file with processing information
+        - tempfiltered.bam: Final processed alignment file
+    """
 
     for h in logging.root.handlers[:]:
         logging.root.removeHandler(h)
@@ -373,29 +473,57 @@ def genomemapping(starref, gtffile, threadnum, options, outputfolder, STARparamf
         if STARparamfile == "NA":
             if "M" in options:
                 extra_star_params = [
-                "--outSAMattributes", "NH", "HI", "AS", "nM", "NM",
-                "--genomeLoad", "NoSharedMemory",
-                "--limitOutSAMoneReadBytes", "200000000",
-                "--outFilterMultimapNmax", "-1",
-                "--outFilterMultimapScoreRange", "0",
-                "--readMatesLengthsIn", "NotEqual",
-                "--limitBAMsortRAM", "0",
-                "--outMultimapperOrder", "Random",
-                "--outSAMtype", "BAM", "SortedByCoordinate",
-                "--outSAMunmapped", "Within",
-                "--outSAMorder", "Paired",
-                "--outSAMprimaryFlag", "AllBestScore",
-                "--outSAMmultNmax", "-1",
-                "--outFilterType", "Normal",
-                "--outFilterScoreMinOverLread", "0",
-                "--alignSJDBoverhangMin", "30",
-                "--outFilterMatchNmin", "15",
-                "--outFilterMatchNminOverLread", "0",
-                "--outFilterMismatchNoverLmax", "0.1",
-                "--outFilterMismatchNoverReadLmax", "0.15",
-                "--alignIntronMin", "20",
-                "--alignIntronMax", "1000000",
-                "--alignEndsType", "Local",
+                "--outSAMattributes",
+                "NH",
+                "HI",
+                "AS",
+                "nM",
+                "NM",
+                "--genomeLoad",
+                "NoSharedMemory",
+                "--limitOutSAMoneReadBytes",
+                "200000000",
+                "--outFilterMultimapNmax",
+                "-1",
+                "--outFilterMultimapScoreRange",
+                "0",
+                "--readMatesLengthsIn",
+                "NotEqual",
+                "--limitBAMsortRAM",
+                "0",
+                "--outMultimapperOrder",
+                "Random",
+                "--outSAMtype",
+                "BAM",
+                "SortedByCoordinate",
+                "--outSAMunmapped",
+                "Within",
+                "--outSAMorder",
+                "Paired",
+                "--outSAMprimaryFlag",
+                "AllBestScore",
+                "--outSAMmultNmax",
+                "-1",
+                "--outFilterType",
+                "Normal",
+                "--outFilterScoreMinOverLread",
+                "0",
+                "--alignSJDBoverhangMin",
+                "30",
+                "--outFilterMatchNmin",
+                "15",
+                "--outFilterMatchNminOverLread",
+                "0",
+                "--outFilterMismatchNoverLmax",
+                "0.1",
+                "--outFilterMismatchNoverReadLmax",
+                "0.15",
+                "--alignIntronMin",
+                "20",
+                "--alignIntronMax",
+                "1000000",
+                "--alignEndsType",
+                "Local",
                 "--outBAMsortingBinsN", "200"
                 ]
             else:
@@ -422,8 +550,11 @@ def genomemapping(starref, gtffile, threadnum, options, outputfolder, STARparamf
                 "--alignIntronMin", "20",
                 "--alignIntronMax", "1000000",
                 "--alignEndsType", "Local"]
+
+
+
         else:
-            with open(STARparamfile, 'r') as sf:
+            with open(STARparamfile, "r") as sf:
                 lines = [line.strip() for line in sf if line.strip()]
             extra_star_params = []
             for line in lines:
@@ -432,32 +563,36 @@ def genomemapping(starref, gtffile, threadnum, options, outputfolder, STARparamf
         logging.info("STAR genome mapping log:\n")
         star_align(
             genome_dir=starref,
-            read_files_in=os.path.join(outputfolder, "combine.fq"), 
+            read_files_in=os.path.join(outputfolder, "combine.fq"),
             out_prefix=star_output_prefix,
             run_thread_n=int(threadnum),
             gtf_file=gtffile,
-            extra_params=extra_star_params
+            extra_params=extra_star_params,
         )
 
     filtered_bam = os.path.join(outputfolder, "STAR/tempfiltered.bam")
 
-    
+    def my_logger(msg):
+        with open(log_file, "a") as ff:
+            ff.write(msg + "\n")
 
     if "M" in options:
-        logging.info("genomemapping Using two-step markdup => dedup_bam_samtools_markdup_2step()")
+        logging.info(
+            "[genomemapping] Using two-step markdup => dedup_bam_samtools_markdup_2step()"
+        )
         dedup_bam_samtools_markdup_2step(
-            input_bam = star_sorted_bam,
-            output_bam= filtered_bam,
-            threads   = int(threadnum),
+            input_bam=star_sorted_bam,
+            output_bam=filtered_bam,
+            threads=int(threadnum)
         )
     else:
         logging.info("genomemapping Using alignment performance => dedup_bam_own()")
         temp_dir = os.path.join(outputfolder, "temps/")
         dedup_bam_own(
-            input_bam = star_unsorted_bam,
-            output_bam= filtered_bam,
-            threads   = int(threadnum),
-            temp_dir  = temp_dir,
+            input_bam=star_sorted_bam,
+            output_bam=filtered_bam,
+            threads=int(threadnum),
+            temp_dir=temp_dir,
         )
 
     logging.info(f"[genomemapping] Done. final => {filtered_bam}")

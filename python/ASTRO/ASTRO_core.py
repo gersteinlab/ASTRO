@@ -64,11 +64,50 @@ def auto_set_barcodes(structure_barcode_in: str):
     return structure_barcode, barcode_position, barcode_length_range
 
 
-def ASTRO (**kwargs):
+def ASTRO(**kwargs):
+    """
+    Main ASTRO pipeline function for spatial transcriptomics data processing.
+
+    This function orchestrates the complete ASTRO workflow including:
+    1. Demultiplexing: Adapter trimming, UMI, and barcode splitting
+    2. Genome Mapping: STAR alignment and duplicate removal
+    3. Feature Counting: Gene expression quantification from GTF annotations
+    4. Feature Filtering: Quality control and filtering of genes/barcodes
+
+    Args:
+        **kwargs: Configuration parameters that can include:
+            json_file_path (str): Path to JSON configuration file
+            json_file_path1 (str): Alternative JSON file path parameter
+            options (str): Pipeline options (e.g., 'H' for hard mode, 'M' for markdup)
+            threadnum (int): Number of threads for parallel processing (default: 16)
+            steps (int): Bitwise integer specifying which steps to run:
+                - 1: Demultiplexing
+                - 2: Genome Mapping
+                - 4: Feature Counting and Filtering
+                - 7: All steps (1+2+4)
+            outputfolder (str): Output directory path
+            R1 (str): Path to R1 FASTQ file (main RNA sequences)
+            R2 (str): Path to R2 FASTQ file (barcodes and UMIs)
+            barcode_file (str): Path to barcode coordinate file
+            starref (str): Path to STAR genome index directory
+            gtffile (str): Path to GTF annotation file
+            PrimerStructure1 (str): R1 primer structure definition
+            StructureUMI (str): UMI structure definition
+            StructureBarcode (str): Spatial barcode structure definition
+            workflow (str): Pipeline version ('new' or 'old', default: 'new')
+            barcodemode (str): Mode for barcode processing ('spatial' or 'singlecell')
+            And many other optional parameters...
+
+    Returns:
+        None: Results are written to the specified output directory
+
+    Raises:
+        SystemExit: If required parameters are missing or invalid
+    """
 
     args = kwargs
-    
-    json_file_path = args['json_file_path'] or args['json_file_path1']
+
+    json_file_path = args["json_file_path"] or args["json_file_path1"]
     if json_file_path:
         with open(json_file_path, "r") as file:
             data = json.load(file)
@@ -96,11 +135,21 @@ def ASTRO (**kwargs):
     args['threadnum'] = args.get('threadnum') or data.get('threadnum') or 16
     args['steps'] = args.get('steps') or data.get('steps') or 7
     args['steps'] = int(args['steps'])
-    args['outputfolder'] = args.get('outputfolder') or data.get('outputfolder') or sys.exit("outputfolder is not specified in both parser and json")
-    args['STARparamfile4genome'] = args.get('STARparamfile4genome') or data.get('STARparamfile4genome') or 'NA'
+    args["outputfolder"] = (
+        args.get("outputfolder")
+        or data.get("outputfolder")
+        or sys.exit("outputfolder is not specified in both parser and json")
+    )
+    args["STARparamfile4genome"] = (
+        args.get("STARparamfile4genome") or data.get("STARparamfile4genome") or "NA"
+    )
     args['genes2check'] = args.get('genes2check') or data.get('genes2check') or False
-    args['barcode_threshold'] = int(args.get('barcode_threshold') or data.get('barcode_threshold') or 100)
-    args['barcodelength'] = int(args.get('barcodelength') or data.get('barcodelength') or 0)
+    args["barcode_threshold"] = int(
+        args.get("barcode_threshold") or data.get("barcode_threshold") or 100
+    )
+    args["barcodelength"] = int(
+        args.get("barcodelength") or data.get("barcodelength") or 0
+    )
     args['barcodeposition']  = args.get('barcodeposition') or data.get('barcodeposition') or "NA"
     args['barcodelengthrange']  = args.get('barcodelengthrange') or data.get('barcodelengthrange') or "NA"
     args['ReadLayout']  = args.get('ReadLayout') or data.get('ReadLayout') or "singleend"
@@ -111,33 +160,64 @@ def ASTRO (**kwargs):
     
     os.makedirs(args['outputfolder'], exist_ok=True)
 
-    args['barcodemode'] = "singlecell" if args.get('barcodemode')=="singlecell" or data.get('barcodemode')=="singlecell" else "spatial"
-
+    args["barcodemode"] = (
+        "singlecell" if args.get("singlecell") or data.get("singlecell") else "spatial"
+    )
     
     if args['steps'] & 1:
-        args['R1'] = args.get('R1') or data.get('R1') or sys.exit("R1 is not specified in both parser and json")
-        args['R2'] = args.get('R2') or data.get('R2') or sys.exit("R2 is not specified in both parser and json")
-        args['PrimerStructure'] = args.get('PrimerStructure') or data.get('PrimerStructure') or 'NA'
+        args["R1"] = (
+            args.get("R1")
+            or data.get("R1")
+            or sys.exit("R1 is not specified in both parser and json")
+        )
+        args["R2"] = (
+            args.get("R2")
+            or data.get("R2")
+            or sys.exit("R2 is not specified in both parser and json")
+        )
+        args["PrimerStructure"] = (
+            args.get("PrimerStructure") or data.get("PrimerStructure") or "NA"
+        )
         
-        args['StructureUMI'] = args.get('StructureUMI') or data.get('StructureUMI') or sys.exit("StructureUMI is not specified in both parser and json")
-        args['StructureBarcode'] = args.get('StructureBarcode') or data.get('StructureBarcode') or sys.exit("StructureBarcode is not specified in both parser and json")
-
+        args["StructureUMI"] = (
+            args.get("StructureUMI")
+            or data.get("StructureUMI")
+            or sys.exit("StructureUMI is not specified in both parser and json")
+        )
+        args["StructureBarcode"] = (
+            args.get("StructureBarcode")
+            or data.get("StructureBarcode")
+            or sys.exit("StructureBarcode is not specified in both parser and json")
+        )
+        
         if not args['manually_set_barcode_details']:
             args['StructureBarcode'], args['barcodeposition'], args['barcodelengthrange']  =  auto_set_barcodes(args['StructureBarcode'])
 
         if args['barcodemode'] == "singlecell":
-            user_bc_file = args.get('barcode_file') or data.get('barcode_file') or "notavailable"
+            user_bc_file = (
+                args.get("barcode_file") or data.get("barcode_file") or "notavailable"
+            )
 
-            final_bc_file = get_barcode_for_single_cell(read1=args['R1'],read2=args['R2'],barcode_file=user_bc_file,PrimerStructure=args['PrimerStructure'],StructureUMI=args['StructureUMI'],StructureBarcode=args['StructureBarcode'],
+            final_bc_file = get_barcode_for_single_cell(
+                read1=args['R1'],
+                read2=args['R2'],
+                barcode_file=user_bc_file,
+                PrimerStructure=args['PrimerStructure'],
+                StructureUMI=args['StructureUMI'],
+                StructureBarcode=args['StructureBarcode'],
                 threadnum=args['threadnum'],
                 outputfolder=args['outputfolder'],
                 barcode_threshold=args['barcode_threshold'],
                 barcodelength=args['barcodelength']
             )
-            if args['ReadLayout'] == "pairedend":
+
+            if args["ReadLayout"] == "pairedend":
                 from .demultiplexer2 import demultiplexingPair
+
                 demultiplexingPair(
-                    read1=args['R1'],read2=args['R2'], barcode_file=final_bc_file, 
+                    read1=args['R1'],
+                    read2=args['R2'],
+                    barcode_file=final_bc_file, 
                     PrimerStructure=args['PrimerStructure'],
                     StructureUMI=args['StructureUMI'],
                     StructureBarcode=args['StructureBarcode'],
@@ -147,7 +227,9 @@ def ASTRO (**kwargs):
                 )
             else:
                 demultiplexing(
-                    read1=args['R1'],read2=args['R2'], barcode_file=final_bc_file, 
+                    read1=args['R1'],
+                    read2=args['R2'],
+                    barcode_file=final_bc_file, 
                     PrimerStructure=args['PrimerStructure'],
                     StructureUMI=args['StructureUMI'],
                     StructureBarcode=args['StructureBarcode'],
@@ -157,16 +239,22 @@ def ASTRO (**kwargs):
                     barcodeposition=args['barcodeposition'],
                     barcodelengthrange=args['barcodelengthrange']
                 )
-            
-           
-            args['barcode_file'] = final_bc_file
+
+            args["barcode_file"] = final_bc_file
 
         else:
-            bcfile = args.get('barcode_file') or data.get('barcode_file') or sys.exit("barcode_file missing for spatial")
-            if args['ReadLayout'] == "pairedend":
+            bcfile = (
+                args.get("barcode_file")
+                or data.get("barcode_file")
+                or sys.exit("barcode_file missing for spatial")
+            )
+            if args["ReadLayout"] == "pairedend":
                 from .demultiplexer2 import demultiplexingPair
+
                 demultiplexingPair(
-                    read1=args['R1'],read2=args['R2'], barcode_file=bcfile, 
+                    read1=args['R1'],
+                    read2=args['R2'],
+                    barcode_file=bcfile, 
                     PrimerStructure=args['PrimerStructure'],
                     StructureUMI=args['StructureUMI'],
                     StructureBarcode=args['StructureBarcode'],
@@ -176,7 +264,9 @@ def ASTRO (**kwargs):
                 )
             else:
                 demultiplexing(
-                    read1=args['R1'],read2=args['R2'], barcode_file=bcfile, 
+                    read1=args['R1'],
+                    read2=args['R2'],
+                    barcode_file=bcfile, 
                     PrimerStructure=args['PrimerStructure'],
                     StructureUMI=args['StructureUMI'],
                     StructureBarcode=args['StructureBarcode'],
@@ -186,54 +276,84 @@ def ASTRO (**kwargs):
                     barcodelengthrange=args['barcodelengthrange'],
                     limitOutSAMoneReadBytes4barcodeMapping=args['limitOutSAMoneReadBytes4barcodeMapping']
                 )
-            args['barcode_file'] = bcfile
+            args["barcode_file"] = bcfile
 
-    if args['steps'] & 2:
-        args['starref'] = args.get('starref') or data.get('starref') or sys.exit("starref is not specified in both parser and json")
-        args['gtffile'] = args.get('gtffile') or data.get('gtffile') or sys.exit("gtffile is not specified in both parser and json")
-        genomemapping(args['starref'], args['gtffile'], args['threadnum'], args['options'], args['outputfolder'],args['STARparamfile4genome'])
-        os.chmod(os.path.join(args['outputfolder'], "STAR/"), 0o755)
-    if args['steps'] & 4:
+    if args["steps"] & 2:
+        args["starref"] = (
+            args.get("starref")
+            or data.get("starref")
+            or sys.exit("starref is not specified in both parser and json")
+        )
+        args["gtffile"] = (
+            args.get("gtffile")
+            or data.get("gtffile")
+            or sys.exit("gtffile is not specified in both parser and json")
+        )
+        genomemapping(
+            args["starref"],
+            args["gtffile"],
+            args["threadnum"],
+            args["options"],
+            args["outputfolder"],
+            args["STARparamfile4genome"],
+        )
+        target_dir = os.path.join(args['outputfolder'], "STAR/")
+        for root, dirs, files in os.walk(target_dir):
+            for d in dirs:
+                os.chmod(os.path.join(root, d), 0o755)
+            for f in files:
+                os.chmod(os.path.join(root, f), 0o644)
+    if args["steps"] & 4:
         from .countfeature import countfeature
-        bcfile = args.get('barcode_file') or data.get('barcode_file') or sys.exit("barcode_file missing in Step4")
-        gtffile = args.get('gtffile') or data.get('gtffile') or sys.exit("gtffile missing in Step4")
-        qualityfilter = args.get('qualityfilter') or data.get('qualityfilter') or "25:0.75"
-        
-        usedgtf = countfeature(args['gtffile'], args['threadnum'], args['options'], bcfile, args['outputfolder'], qualityfilter, args['genes2check'])
 
+        bcfile = (
+            args.get("barcode_file")
+            or data.get("barcode_file")
+            or sys.exit("barcode_file missing in Step4")
+        )
+        gtffile = (
+            args.get("gtffile")
+            or data.get("gtffile")
+            or sys.exit("gtffile missing in Step4")
+        )
+        qualityfilter = (
+            args.get("qualityfilter") or data.get("qualityfilter") or "25:0.75"
+        )
+        usedgtf = countfeature(args['gtffile'], args['threadnum'], args['options'], bcfile, args['outputfolder'], qualityfilter, args['genes2check'])
+        
         if qualityfilter not in ['0:0','NA']:
             os.makedirs(os.path.join(args['outputfolder'], "filteredout/"), exist_ok=True)
             expmatbedexcl = os.path.join(args['outputfolder'], "filteredout/expmat.bed.excl")
             os.rename(os.path.join(args['outputfolder'], "expmat.bed.excl"), expmatbedexcl)
 
-        if args['barcodemode'] == "singlecell":
-            final_bc_file = bcfile  
+        if args["barcodemode"] == "singlecell":
+            final_bc_file = bcfile
             i2bc = {}
-            with open(final_bc_file, 'r') as f:
+            with open(final_bc_file, "r") as f:
                 for line in f:
-                    line=line.strip()
+                    line = line.strip()
                     if not line:
                         continue
-                    arr=line.split('\t')
-                    if len(arr)<3:
+                    arr = line.split("\t")
+                    if len(arr) < 3:
                         continue
                     bc_seq, i_str, i_str2 = arr[0], arr[1], arr[2]
                     i2bc[i_str] = bc_seq
-            
-            expmat_tsv = os.path.join(args['outputfolder'], "expmat.tsv")
+
+            expmat_tsv = os.path.join(args["outputfolder"], "expmat.tsv")
             if os.path.exists(expmat_tsv):
                 tmp_renamed = expmat_tsv + ".renamed"
-                with open(expmat_tsv, 'r') as fin, open(tmp_renamed, 'w') as fout:
+                with open(expmat_tsv, "r") as fin, open(tmp_renamed, "w") as fout:
                     lines = fin.readlines()
                     if lines:
-                        header = lines[0].rstrip('\n').split('\t')
+                        header = lines[0].rstrip("\n").split("\t")
                         new_header = []
                         for col in header:
                             if col == "gene":
                                 new_header.append(col)
                             else:
-                                part = col.split('x')
-                                if len(part)==2 and part[0]==part[1]:
+                                part = col.split("x")
+                                if len(part) == 2 and part[0] == part[1]:
                                     i_val = part[0]
                                     if i_val in i2bc:
                                         new_header.append(i2bc[i_val])
@@ -241,21 +361,29 @@ def ASTRO (**kwargs):
                                         new_header.append(col)
                                 else:
                                     new_header.append(col)
-                        fout.write('\t'.join(new_header) + '\n')
+                        fout.write("\t".join(new_header) + "\n")
                         for line in lines[1:]:
                             fout.write(line)
                 os.remove(expmat_tsv)
                 os.rename(tmp_renamed, expmat_tsv)
 
         else:
-            if qualityfilter not in ['0:0','NA']:
-                removeByDim = args.get('removeByDim') or data.get('removeByDim') or True
+            if qualityfilter not in ["0:0", "NA"]:
+                removeByDim = args.get("removeByDim") or data.get("removeByDim") or True
                 if removeByDim:
                     from .featurefilter import featurefilter
-                    args['filterlogratio'] = args.get('filterlogratio') or data.get('filterlogratio') or 2
+                    args['filterlogratio'] = (
+                        args.get('filterlogratio') or data.get('filterlogratio') or 2
+                    )
                     #gtffile = args.get('gtffile') or data.get('gtffile')
                     #featurefilter(args['gtffile'], args['options'], args['barcode_file'], args['filterlogratio'], args['outputfolder'])
-                    featurefilter(usedgtf, args['options'], args['barcode_file'], args['filterlogratio'], args['outputfolder'])
+                    featurefilter(
+                        usedgtf,
+                        args['options'],
+                        args['barcode_file'],
+                        args['filterlogratio'],
+                        args['outputfolder']
+                    )
                     
     if not args['not_organize_result']:
         interimfolder = os.path.join(args['outputfolder'], "interim/")
