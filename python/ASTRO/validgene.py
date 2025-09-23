@@ -7,9 +7,6 @@ import os
 import multiprocessing as mp
 from statsmodels.stats.rates import test_poisson_2indep
 
-#python3 /home/dz287/mark/SHARE/scripts/validgene.py hsamirhigh.bed ~/mark/SHARE/data/LM0623P100/tempfiltered.bam  LM0623a
-#egrep '(__miRNA|__piRNA)' mmu.all.gtf | cut -f 9 | sort | uniq > genes2checkMm.txt
-#egrep '(__miRNA|__piRNA)' hsa.all.gtf | cut -f 9 | sort | uniq > genes2checkHs.txt
 
 def alignment_end(pos, cigar):
     ref_len = 0
@@ -163,7 +160,6 @@ def getvalidedgtf(gtfin, outputfolder, genes2check, hangout=3):
             fields = line.strip().split('\t')
             chrom = fields[1].replace("SN:", "")
             existchromosomes.append(chrom)
-            print("include chromosome: ", existchromosomes)
     proc.stdout.close()
     proc.wait()
 
@@ -253,12 +249,17 @@ def getvalidedgtf_parallel(gtfin, outputfolder, genes2check, hangout=5, threadsn
         for line in bf:
             line = line.strip()
             genes2checkdict[line] = 1
-    bamfile = os.path.join(outputfolder, "STAR/tempfiltered.bam")
-    if not os.path.exists(bamfile+".bai"):
-        print(bamfile+".bai")
-        subprocess.run(["samtools", "index", bamfile])
+
+    sortedbam = os.path.join(outputfolder, "STAR/tempfiltered.sorted.bam")
+    bamfile   = os.path.join(outputfolder, "STAR/tempfiltered.bam")
+
+    if not os.path.isfile(sortedbam):
+        subprocess.run(["samtools", "sort", "-@", str(threadsnum), "-o", sortedbam, bamfile], stdout=subprocess.DEVNULL, check=True)
+
+    if not os.path.exists(sortedbam+".bai"):
+        subprocess.run(["samtools", "index", sortedbam], stdout=subprocess.DEVNULL)
     proc = subprocess.Popen(
-        ["samtools", "view", "-H", bamfile],
+        ["samtools", "view", "-H", sortedbam],
         stdout=subprocess.PIPE,
         text=True
     )
@@ -268,7 +269,6 @@ def getvalidedgtf_parallel(gtfin, outputfolder, genes2check, hangout=5, threadsn
             fields = line.strip().split('\t')
             chrom = fields[1].replace("SN:", "")
             existchromosomes.append(chrom)
-            print("include chromosome: ", existchromosomes)
     proc.stdout.close()
     proc.wait()
 
@@ -276,7 +276,7 @@ def getvalidedgtf_parallel(gtfin, outputfolder, genes2check, hangout=5, threadsn
         lines = f.readlines()
 
     pool = mp.Pool(int(threadsnum))
-    results = pool.starmap(getvalidedgtf_worker, [(line, genes2checkdict, bamfile, existchromosomes, hangout) for line in lines])
+    results = pool.starmap(getvalidedgtf_worker, [(line, genes2checkdict, sortedbam, existchromosomes, hangout) for line in lines])
     pool.close()
     pool.join()
 

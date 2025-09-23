@@ -7,7 +7,6 @@ from .genomemapping import genomemapping
 from .countfeature import countfeature
 from .featurefilter import featurefilter
 from .demultiplexer import demultiplexing, get_barcode_for_single_cell
-from .validgene import getvalidedgtf_parallel
 import subprocess
 
 
@@ -27,7 +26,7 @@ def auto_set_barcodes(structure_barcode_in: str):
             a, b = elems
             if a.isdigit() and b.isdigit():
                 out_lens.append(int(b))
-                outi = f"{max(int(a) - 4, 0)}_{int(b) + 8}"
+                outi = f"{int(a)}_{int(b)}"
                 out_structs.append(outi)
             elif a.isdigit():
                 out_lens.append(int(a))
@@ -85,6 +84,12 @@ def ASTRO (**kwargs):
         sys.exit("transcript_read and R2 are same things, duplicated settings")
     if data.get('transcript_read'):
         data['R2'] = data.pop('transcript_read')
+
+    WHITELIST = {'options', 'threadnum', 'barcodemode', 'R1', 'R2', 'PrimerStructure', 'StructureUMI', 'StructureBarcode', 'filterlogratio', 'starref', 'barcode_read', 'transcript_read', 'qualityfilter', 'workflow', 'removeByDim', 'barcode_file', 'json_file_path', 'json_file_path1',
+    'gtffile', 'steps','outputfolder', 'STARparamfile4genome','genes2check', 'barcode_threshold', 'barcodelength', 'barcodeposition', 'barcodelengthrange', 'ReadLayout', 'limitOutSAMoneReadBytes4barcodeMapping',  'not_organize_result', 'manually_set_barcode_details'}
+    invalid_keys = set(args.keys()) - WHITELIST
+    if invalid_keys:
+        sys.exit(f"Error: invalid argument(s) detected: {', '.join(invalid_keys)}")
 
     
     args['options'] = args.get('options') or data.get('options') or ""
@@ -193,10 +198,8 @@ def ASTRO (**kwargs):
         bcfile = args.get('barcode_file') or data.get('barcode_file') or sys.exit("barcode_file missing in Step4")
         gtffile = args.get('gtffile') or data.get('gtffile') or sys.exit("gtffile missing in Step4")
         qualityfilter = args.get('qualityfilter') or data.get('qualityfilter') or "25:0.75"
-        usedgtf = args['gtffile']
-        if args['genes2check']:
-            usedgtf = getvalidedgtf_parallel(gtfin=gtffile,outputfolder=args['outputfolder'],genes2check=args['genes2check'],hangout=5,threadsnum=args['threadnum'])
-        countfeature(usedgtf, args['threadnum'], args['options'], bcfile, args['outputfolder'], qualityfilter)
+        
+        usedgtf = countfeature(args['gtffile'], args['threadnum'], args['options'], bcfile, args['outputfolder'], qualityfilter, args['genes2check'])
 
         if qualityfilter not in ['0:0','NA']:
             os.makedirs(os.path.join(args['outputfolder'], "filteredout/"), exist_ok=True)
@@ -269,6 +272,8 @@ def ASTRO (**kwargs):
 
         threads = args['threadnum']
         def compress_one(src, dst):
+            if not os.path.exists(str(src)):
+                return
             tmp = dst + ".tmp"
             if which("pigz"):
                 
@@ -286,17 +291,21 @@ def ASTRO (**kwargs):
         compress_one(expmatbed,  expmatbed2)
         compress_one(combinefq,  combinefq2)
 
-        for file_name in os.listdir(os.path.join(args['outputfolder'], "temps/barcode_db/")):
-            file_path = os.path.join(os.path.join(args['outputfolder'], "temps/barcode_db/"), file_name)
-            if os.path.isfile(file_path):
-                os.remove(file_path)  
-        os.rmdir(os.path.join(args['outputfolder'], "temps/barcode_db/"))
 
-        for file_name in os.listdir(os.path.join(args['outputfolder'], "temps/")):
-            file_path = os.path.join(os.path.join(args['outputfolder'], "temps/"), file_name)
-            if os.path.isfile(file_path):
-                os.remove(file_path)  
-        os.rmdir(os.path.join(args['outputfolder'], "temps/"))
+        barcode_db = os.path.join(args['outputfolder'], "temps/barcode_db/")
+        temps = os.path.join(args['outputfolder'], "temps/")
+        if os.path.isdir(barcode_db):
+            for file_name in os.listdir(barcode_db):
+                file_path = os.path.join(barcode_db, file_name)
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+            os.rmdir(barcode_db)
+        if os.path.isdir(temps):
+            for file_name in os.listdir(temps):
+                file_path = os.path.join(temps, file_name)
+                if os.path.isfile(file_path):
+                    os.remove(file_path)
+            os.rmdir(temps)
     
     
 

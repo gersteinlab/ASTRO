@@ -111,3 +111,10 @@ python3 scripts/clpsGTF.py -i mirbase/hsa.mod.gtf:GtRNAdb/hg38-tRNAs.mod.gtf:RNA
 python3 scripts/clpsGTF.py -i mirbase/hsa.mod.gtf:GtRNAdb/hg38-tRNAs.mod.gtf:RNAcentral/vault_RNA.mod.gtf:RNAcentral/Y_RNA.mod.gtf:gencode/gencode.v45.mod.gtf -o hsa.mod.gtf
 ########################################
 ########################################
+
+#only reserve right chrs.
+awk '$1 !~ /[_\.]/' GRCh38/hsa.with_piRNA.gtf | sed 's/^MT/M/' > GRCh38/hsa.with_piRNA.gtf2
+awk '$1 !~ /[_\.]/' GRCh38/hsa.mod.gtf | sed 's/^MT/M/' > GRCh38/hsa.mod.gtf2
+mv GRCh38/hsa.with_piRNA.gtf2 GRCh38/hsa.with_piRNA.gtf
+mv GRCh38/hsa.mod.gtf2 GRCh38/hsa.mod.gtf
+

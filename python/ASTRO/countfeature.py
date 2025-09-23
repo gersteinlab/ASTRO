@@ -4,7 +4,7 @@ import re
 import math
 import multiprocessing
 import logging
-
+from .validgene import getvalidedgtf_parallel
 
 
 
@@ -521,7 +521,7 @@ def parse_star_log(filepath):
 
 
 
-def countfeature(gtffile, threadnum, options, barcodes_file, outputfolder, qualityfilter):
+def countfeature(gtffile, threadnum, options, barcodes_file, outputfolder, qualityfilter, genes2check=False):
 
     for h in logging.root.handlers[:]:
         logging.root.removeHandler(h)
@@ -531,6 +531,19 @@ def countfeature(gtffile, threadnum, options, barcodes_file, outputfolder, quali
     logging.basicConfig(filename=logfilename, filemode="w", level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
     logging.info("countfeature step starts.\n")
+
+    if genes2check:
+        logging.info("gene feature check step starts.\n")
+        usedgtf = getvalidedgtf_parallel(gtfin=gtffile, outputfolder=outputfolder, genes2check=genes2check, hangout=5, threadsnum=threadnum)
+        def count_lines(fname):
+            with open(fname, "r") as f:
+                return sum(1 for _ in f)
+
+        n1 = count_lines(gtffile)
+        n2 = count_lines(usedgtf)
+        logging.info(f"Get valid GTF: {usedgtf}. check step ends.\n")
+        logging.info("gene feature check step ends.\n")
+        gtffile = usedgtf
 
     with open(os.path.join(outputfolder, "STAR/tempLog.final.out"), "r") as f:
         content = f.read()
@@ -548,6 +561,9 @@ def countfeature(gtffile, threadnum, options, barcodes_file, outputfolder, quali
     if 'H' in options:
         do_easy_mode = 0
     tempfilteredbam = os.path.join(outputfolder, "STAR/tempfiltered.bam")
+    tempfilteredsortedbam = os.path.join(outputfolder, "STAR/tempfiltered.sorted.bam")
+    if os.path.isfile(tempfilteredsortedbam):
+        tempfilteredbam = tempfilteredsortedbam
     collatedbams = os.path.join(outputfolder, "STAR/tempfiltered.collated")
     #collatedbed = os.path.join(outputfolder, "STAR/tempfiltered.bed")
     expmatbed = os.path.join(outputfolder, "expmat.bed")
@@ -591,6 +607,7 @@ def countfeature(gtffile, threadnum, options, barcodes_file, outputfolder, quali
     else:
         featurebed2mattsv(input_file=expmatbed, output_file=expmattsv, barcodes_file=barcodes_file, gtf_file=gtffile, filter_str=qualityfilter, easy_mode=do_easy_mode)
     logging.info(f"countfeature step ends.\n")
+    return gtffile
     
     
     

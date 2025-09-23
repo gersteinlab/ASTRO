@@ -121,4 +121,3 @@ python3 scripts/clpsGTF.py -i mirbase/mmu.mod.gtf:GtRNAdb/mm39-tRNAs.mod.gtf:RNA
 
 
 
-

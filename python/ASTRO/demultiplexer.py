@@ -38,11 +38,11 @@ def singleCutadapt(barcodestr,outputfile,remainfa,threadnum):
                         out_handle.write("@%s\n%s\n+\n%s\n" % (title, new_seq, new_qual))
         os.remove(filein)
         os.rename(filein+'.temp', filein)
-    def cutfastq_abs(srcfile, outfile, skip, keep):
+    def cutfastq_abs(srcfile, outfile, startpos, length):
         with (gzip.open(srcfile, "rt") if srcfile.endswith('.gz') else open(srcfile, "rt")) as in_handle:
             with open(outfile, "w") as out_handle:
                 for title, seq, qual in simple_fastq_iterator(in_handle):
-                    s = int(skip); k = int(keep); e = s + k
+                    s = int(startpos); k = int(length); e = s + k
                     if s >= len(seq):
                         new_seq  = ""
                         new_qual = ""
@@ -81,7 +81,7 @@ def singleCutadapt(barcodestr,outputfile,remainfa,threadnum):
         tempout = outputfile + '.temp' + str(ii)
         if len(array4input) == 2:
             if re.fullmatch(r'\d+', array4input[0]) and re.fullmatch(r'\d+', array4input[1]):
-                cutfastq_abs(remainfa, tempout, int(array4input[0]), int(array4input[1]))
+                cutfastq_abs(remainfa, tempout, int(array4input[0])-1, int(array4input[1]))
                 linkfqs.append(tempout)
 
             # original behaviors kept: N_ADAPTER or ADAPTER_N
@@ -168,19 +168,21 @@ def merge_chunk_to_tempfile(chunk_index, linesA, linesB, linesC, temp_dir):
         return tf.name
 
 def parse4barcodeposition(barcodeposition):
-    pos, length = 0, 0
+    startpos, endpos = 0, 0
 
     if m := re.fullmatch(r'([0-9_]+)b', barcodeposition):
         parts = m.group(1).split('_')
-        pos = int(parts[0])-1 if len(parts) > 1 else 0
-        length = int(parts[-1])+pos
+        startpos = int(parts[0])-1 if len(parts) > 1 else 0
+        endpos = int(parts[-1])+startpos
     elif m := re.fullmatch(r'b([0-9_]+)', barcodeposition):
         parts = m.group(1).split('_')
-        pos = -int(parts[0])
-        length = int(parts[-1])-int(parts[0]) if len(parts) > 1 else None
+        startpos = -int(parts[0])
+        endpos = int(parts[-1])+startpos if len(parts) > 1 else None
+        if endpos is not None and endpos >= 0:
+            endpos = None
     else:
         raise ValueError(f"wrong format in barcodeposition: {barcodeposition}")
-    return pos, length
+    return startpos, endpos
 def merge_chunk_to_tempfile_to2files(chunk_index, linesA, linesB, linesC, temp_dir, barcodepositionvector, barcodelengthmin, barcodelengthmax, barcode_dict):
         
         with tempfile.NamedTemporaryFile(mode='w', delete=False, dir=temp_dir, prefix=f"chunk_{chunk_index}_", suffix=".fastq") as tf, tempfile.NamedTemporaryFile(mode='w', delete=False, dir=temp_dir, prefix=f"chunk_{chunk_index}_", suffix=".fastq") as tf2:
@@ -569,8 +571,32 @@ def demultiplexing(read1,read2, barcode_file, PrimerStructure, StructureUMI, Str
             read2, read1], text=True, capture_output=True, check=True)
         logging.info("cutadapt for mRNA read log:\n%s", result4out.stdout)
     else:
-        CleanFq1 = read1
-        CleanFq2 = read2
+        def compress_one(src, dst):
+            if not os.path.exists(str(src)):
+                return
+            tmp = dst + ".tmp"
+            if which("pigz"):
+                with open(tmp, "wb") as out:
+                    subprocess.run(["pigz", "-p", str(threads), "-c", str(src)], check=True, stdout=out)
+            elif which("bgzip"):
+                with open(tmp, "wb") as out:
+                    subprocess.run(["bgzip", "-@", str(threads), "-c", str(src)], check=True, stdout=out)
+            else:
+                with open(src, "rb") as f_in, gzip.open(tmp, "wb") as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+            os.replace(tmp, dst)   
+            os.remove(src)
+        def is_gzip(path):
+            with open(path, "rb") as f:
+                return f.read(2) == b"\x1f\x8b"
+        if is_gzip(CleanFq1):
+            compress_one(read1, CleanFq1)
+        else:
+            CleanFq1 = read1
+        if is_gzip(CleanFq2):
+            compress_one(read2, CleanFq2)
+        else:
+            CleanFq2 = read2
     
     logging.info("cutadapt for UMI log:\n")
     singleCutadapt(StructureUMI,UMI_fq,CleanFq1,threadnum)
