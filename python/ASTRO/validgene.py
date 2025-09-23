@@ -185,12 +185,18 @@ def getvalidedgtf(gtfin, outputfolder, genes2check, hangout=3):
         for line in bf:
             line = line.strip()
             genes2checkdict[line] = 1
+    
+    sortedbam = os.path.join(outputfolder, "STAR/tempfiltered.sorted.bam")
     bamfile = os.path.join(outputfolder, "STAR/tempfiltered.bam")
-    if not os.path.exists(bamfile + ".bai"):
-        print(bamfile + ".bai")
-        subprocess.run(["samtools", "index", bamfile])
+
+    if not os.path.isfile(sortedbam):
+        subprocess.run(["samtools", "sort", "-@", str(threadsnum), "-o", sortedbam, bamfile], stdout=subprocess.DEVNULL, check=True)
+
+    if not os.path.exists(sortedbam+".bai"):
+        subprocess.run(["samtools", "index", sortedbam], stdout=subprocess.DEVNULL)
+
     proc = subprocess.Popen(
-        ["samtools", "view", "-H", bamfile], stdout=subprocess.PIPE, text=True
+        ["samtools", "view", "-H", sortedbam], stdout=subprocess.PIPE, text=True
     )
     existchromosomes = []
     for line in proc.stdout:
@@ -205,10 +211,7 @@ def getvalidedgtf(gtfin, outputfolder, genes2check, hangout=3):
     with open(gtfin, "r") as gtf, open(validgenegtf, "w") as tm:
         for line in gtf:
             line = line.strip()
-            # print(line)
             parts = line.split("\t")
-            # print(parts)
-            # sys.exit(1)
             genename = parts[8]
             if genename in genes2checkdict:
                 chrom = parts[0]
@@ -365,6 +368,7 @@ def getvalidedgtf_parallel(gtfin, outputfolder, genes2check, hangout=5, threadsn
         stdout=subprocess.PIPE,
         text=True
     )
+
     existchromosomes = []
     for line in proc.stdout:
         if line.startswith("@SQ"):
@@ -380,7 +384,7 @@ def getvalidedgtf_parallel(gtfin, outputfolder, genes2check, hangout=5, threadsn
     pool = mp.Pool(int(threadsnum))
     results = pool.starmap(
         getvalidedgtf_worker,
-        [(line, genes2checkdict, bamfile, existchromosomes, hangout) for line in lines],
+        [(line, genes2checkdict, sortedbam, existchromosomes, hangout) for line in lines],
     )
     pool.close()
     pool.join()

@@ -292,7 +292,7 @@ Overrides JSON values if explicitly provided.
 ASTRO --R1 R1.fq --R2 R2.fq \
 --barcode_file spatial_barcodes.txt \
 --gtffile hsa.no_piRNA.gtf --starref StarIndex/ \
---PrimerStructure1 AAGCAGTGGTATCAACGCAGAGTGAATGGG_b_A{10}N{150} \
+--PrimerStructure AAGCAGTGGTATCAACGCAGAGTGAATGGG_b_A{10}N{150} \
 --StructureUMI CAAGCGTTGGCTTCTCGCATCT_10 \
 --StructureBarcode 20_ATCCACGTGCTTGAGAGGCCAGAGCATTCG:... \
 --threadnum 16 \
@@ -352,7 +352,7 @@ filtmatbyrt --expmatgood good_expmat.tsv --expmatbad bad_expmat.tsv --finalexpma
     "barcode_read": "example.barcodeRead.fastq.gz", \
     "transcript_read": "example.transRead.fastq.gz", \
     "barcode_file": "spatial_barcodes.txt", \
-    "PrimerStructure1": "AAGCAGTGGTATCAACGCAGAGTGAATGGG_b_A{10}N{150}",\
+    "PrimerStructure": "AAGCAGTGGTATCAACGCAGAGTGAATGGG_b_A{10}N{150}",\
     "StructureUMI": "CAAGCGTTGGCTTCTCGCATCT_10", \
     "StructureBarcode": "20_ATCCACGTGCTTGAGAGGCCAGAGCATTCG:ATCCACGTGCTTGAGAGGCCAGAGCATTCG...GTGGCCGATGTTTCGCATCGGCGTACGACT",\
     "threadnum": 1, \

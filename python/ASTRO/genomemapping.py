@@ -327,7 +327,12 @@ def dedup_bam_own(
     chunk_size=100000
 ):
     filtered_bam = f"{input_bam}.mappedOnly.bam"
-    cmd_filter = ["samtools", "view", "-b", "-F", "4", input_bam, "-o", filtered_bam]
+    cmd_filter = [
+        "samtools", "view",
+        "-b", "-F", "4",
+        input_bam,
+        "-o", filtered_bam
+    ]
     logging.info(f"[v2] Step0: Filtering unmapped => {' '.join(cmd_filter)}")
     ret = subprocess.run(cmd_filter)
     if ret.returncode != 0:
@@ -589,7 +594,7 @@ def genomemapping(starref, gtffile, threadnum, options, outputfolder, STARparamf
         logging.info("genomemapping Using alignment performance => dedup_bam_own()")
         temp_dir = os.path.join(outputfolder, "temps/")
         dedup_bam_own(
-            input_bam=star_sorted_bam,
+            input_bam=star_unsorted_bam,
             output_bam=filtered_bam,
             threads=int(threadnum),
             temp_dir=temp_dir,

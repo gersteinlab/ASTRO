@@ -41,7 +41,7 @@ def main():
     parser.add_argument("--starref", help="STAR referebce folder")
     parser.add_argument("--gtffile", help="gtf file")
     parser.add_argument(
-        "--PrimerStructure1",
+        "--PrimerStructure",
         help="structure for R1, like AAGCAGTGGTATCAACGCAGAGTGAATGGG_b_A{10}N{150}",
     )
     parser.add_argument(
@@ -102,7 +102,7 @@ def main():
             "outputfolder",
             "starref",
             "gtffile",
-            "PrimerStructure1",
+            "PrimerStructure",
             "StructureUMI",
             "StructureBarcode",
             "scriptFolder",
