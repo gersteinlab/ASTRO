@@ -179,7 +179,7 @@ def main():
             fm.write(line + "\n")
 
 
-def getvalidedgtf(gtfin, outputfolder, genes2check, hangout=3):
+def getvalidedgtf(gtfin, outputfolder, genes2check, threadsnum, hangout=3):
     genes2checkdict = {}
     with open(genes2check, "r") as bf:
         for line in bf:
@@ -190,10 +190,10 @@ def getvalidedgtf(gtfin, outputfolder, genes2check, hangout=3):
     bamfile = os.path.join(outputfolder, "STAR/tempfiltered.bam")
 
     if not os.path.isfile(sortedbam):
-        subprocess.run(["samtools", "sort", "-@", str(threadsnum), "-o", sortedbam, bamfile], stdout=subprocess.DEVNULL, check=True)
+        subprocess.run(["samtools", "sort", "-@", str(threadsnum), "-o", sortedbam, bamfile], stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, check=True)
 
     if not os.path.exists(sortedbam+".bai"):
-        subprocess.run(["samtools", "index", sortedbam], stdout=subprocess.DEVNULL)
+        subprocess.run(["samtools", "index", sortedbam], stderr=subprocess.PIPE, stdout=subprocess.DEVNULL, check=True,)
 
     proc = subprocess.Popen(
         ["samtools", "view", "-H", sortedbam], stdout=subprocess.PIPE, text=True
