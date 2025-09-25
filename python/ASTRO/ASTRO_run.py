@@ -86,11 +86,7 @@ def main():
 
     args = parser.parse_args()
     workflow = args.workflow
-    if args.json_file_path1:
-        with open(args.json_file_path1, "r") as f:
-            config = json.load(f)
-        for k, v in config.items():
-            setattr(args, k, v)
+
     if workflow == "old":
         from .olddriver import run_old_pipeline
 

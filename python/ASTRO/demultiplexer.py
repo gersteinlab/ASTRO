@@ -196,7 +196,7 @@ def merge_chunk_to_tempfile(chunk_index, linesA, linesB, linesC, temp_dir):
 
             new_line1 = new_read_name
             new_line2 = a2
-            new_line3 = a3
+            new_line3 = '+'
             new_line4 = a4
 
             tf.write(f"{new_line1}\n{new_line2}\n{new_line3}\n{new_line4}\n")
@@ -278,7 +278,7 @@ def merge_chunk_to_tempfile_to2files(chunk_index, linesA, linesB, linesC, temp_d
 
                 new_line1 = new_read_name
                 new_line2 = a2
-                new_line3 = a3
+                new_line3 = '+'
                 new_line4 = a4
 
                 tf.write(f"{new_line1}\n{new_line2}\n{new_line3}\n{new_line4}\n")
@@ -663,6 +663,8 @@ def demultiplexing(
     logging.info(f"demultiplexing step starts\n")
 
     threadnum = str(threadnum)
+
+    
     if PrimerStructure != "NA":
         prefixread1 = PrimerStructure.split('_', 1)[0]
         suffixread1 = PrimerStructure.rsplit('_', 1)[-1]
@@ -679,12 +681,13 @@ def demultiplexing(
             if not os.path.exists(str(src)):
                 return
             tmp = dst + ".tmp"
+            from shutil import which
             if which("pigz"):
                 with open(tmp, "wb") as out:
-                    subprocess.run(["pigz", "-d", "-p", str(threads), "-c", str(src)], check=True, stdout=out)
+                    subprocess.run(["pigz", "-d", "-p", str(threadnum), "-c", str(src)], check=True, stdout=out)
             elif which("bgzip"):
                 with open(tmp, "wb") as out:
-                    subprocess.run(["bgzip", "-d", "-@", str(threads), "-c", str(src)], check=True, stdout=out)
+                    subprocess.run(["bgzip", "-d", "-@", str(threadnum), "-c", str(src)], check=True, stdout=out)
             else:
                 with gzip.open(src, "rb") as f_in, open(tmp, "wb") as f_out:
                     shutil.copyfileobj(f_in, f_out)
@@ -693,20 +696,21 @@ def demultiplexing(
         def is_gzip(path):
             with open(path, "rb") as f:
                 return f.read(2) == b"\x1f\x8b"
-        if is_gzip(CleanFq1):
-            compress_one(read1, CleanFq1)
+        if is_gzip(read1):
+            decompress_one(read1, CleanFq1)
         else:
             CleanFq1 = read1
-        if is_gzip(CleanFq2):
-            compress_one(read2, CleanFq2)
+        if is_gzip(read2):
+            decompress_one(read2, CleanFq2)
         else:
             CleanFq2 = read2
-    
+
     logging.info("cutadapt for UMI log:\n")
     singleCutadapt(StructureUMI,UMI_fq,CleanFq1,threadnum)
     logging.info("cutadapt for barcode log:\n")
     singleCutadapt(StructureBarcode,index_fq,CleanFq1,threadnum)
-    
+
+
     barcode_dict = {}
     with open(barcode_file, 'r') as barcodes_in, open(barcode_db_fa, 'w') as barcode_db_file:
       for line in barcodes_in:
@@ -716,6 +720,7 @@ def demultiplexing(
           barcode_db_file.write(f">{header}\n{sequence}\n")
           barcode_dict[sequence] = header
     
+
     Fqs2_1fq(index_fq,CleanFq2,UMI_fq,CombineFq,16,1000000,temps_path,barcodeposition,barcodelengthrange,barcode_dict)
     result4out = subprocess.run([ "STAR", "--runMode", "genomeGenerate", "--runThreadN", threadnum, "--genomeDir", barcode_db_path, "--genomeFastaFiles", barcode_db_fa, "--genomeSAindexNbases", "7" ,"--limitGenomeGenerateRAM", "60000000000"], text=True, capture_output=True, check=True)
     logging.info("STAR genomeGenerate for barcode reference:\n%s", result4out.stdout)
@@ -749,7 +754,9 @@ def demultiplexing(
     "--outFilterMismatchNoverReadLmax", "0.7"
     ]+limitOutSAMoneReadBytes4barcodeMapping, text=True, capture_output=True, check=True)
     logging.info("STAR genomeGenerate for barcode mapping:\n%s", result4out.stdout)
+    
     filter_sam_nbhd(os.path.join(outputfolder, "temps/barcodeMapping/tempAligned.out.sam"), CombineFq)
+    
     #filter_sam(os.path.join(outputfolder, "temps/barcodeMapping/tempAligned.out.sam"), CombineFq, int(threadnum), 1000000)
 
     if os.path.isfile(CombineFq + '0'):

@@ -114,15 +114,11 @@ def ASTRO(**kwargs):
     else:
         data = {}
 
-    if data.get('barcode_read') and data.get('R1'):
-        sys.exit("barcode_read and R1 are same things, duplicated settings")
-    if data.get('barcode_read'):
-        data['R1'] = data.pop('barcode_read')
-
-    if data.get('transcript_read') and data.get('R2'):
-        sys.exit("transcript_read and R2 are same things, duplicated settings")
-    if data.get('transcript_read'):
-        data['R2'] = data.pop('transcript_read')
+    
+    
+    for k, v in data.items():
+        if args.get(k) is None:
+            args[k] = v
 
     WHITELIST = {'options', 'threadnum', 'barcodemode', 'R1', 'R2', 'PrimerStructure', 'StructureUMI', 'StructureBarcode', 'filterlogratio', 'starref', 'barcode_read', 'transcript_read', 'qualityfilter', 'workflow', 'removeByDim', 'barcode_file', 'json_file_path', 'json_file_path1',
     'gtffile', 'steps','outputfolder', 'STARparamfile4genome','genes2check', 'barcode_threshold', 'barcodelength', 'barcodeposition', 'barcodelengthrange', 'ReadLayout', 'limitOutSAMoneReadBytes4barcodeMapping',  'not_organize_result', 'manually_set_barcode_details'}
@@ -130,7 +126,6 @@ def ASTRO(**kwargs):
     if invalid_keys:
         sys.exit(f"Error: invalid argument(s) detected: {', '.join(invalid_keys)}")
 
-    
     args['options'] = args.get('options') or data.get('options') or ""
     args['threadnum'] = args.get('threadnum') or data.get('threadnum') or 16
     args['steps'] = args.get('steps') or data.get('steps') or 7
@@ -143,38 +138,43 @@ def ASTRO(**kwargs):
     args["STARparamfile4genome"] = (
         args.get("STARparamfile4genome") or data.get("STARparamfile4genome") or "NA"
     )
-    args['genes2check'] = args.get('genes2check') or data.get('genes2check') or False
+    args['genes2check'] = args.get("genes2check", data.get("genes2check", False))
     args["barcode_threshold"] = int(
-        args.get("barcode_threshold") or data.get("barcode_threshold") or 100
+        args.get("barcode_threshold", data.get("barcode_threshold", 100))
     )
     args["barcodelength"] = int(
-        args.get("barcodelength") or data.get("barcodelength") or 0
+        args.get("barcodelength", data.get("barcodelength", 0))
     )
+    
     args['barcodeposition']  = args.get('barcodeposition') or data.get('barcodeposition') or "NA"
     args['barcodelengthrange']  = args.get('barcodelengthrange') or data.get('barcodelengthrange') or "NA"
     args['ReadLayout']  = args.get('ReadLayout') or data.get('ReadLayout') or "singleend"
     args['limitOutSAMoneReadBytes4barcodeMapping']  = args.get('limitOutSAMoneReadBytes4barcodeMapping') or data.get('limitOutSAMoneReadBytes4barcodeMapping') or "NA"
-    args['not_organize_result']  = args.get('not_organize_result') or data.get('not_organize_result') or False
-    args['manually_set_barcode_details']  = args.get('manually_set_barcode_details') or data.get('manually_set_barcode_details') or False
-    
+    args['not_organize_result'] = args.get("not_organize_result", data.get("not_organize_result", False))
+    args['manually_set_barcode_details'] = args.get("manually_set_barcode_details", data.get("manually_set_barcode_details", False))
     
     os.makedirs(args['outputfolder'], exist_ok=True)
 
     args["barcodemode"] = (
         "singlecell" if args.get("singlecell") or data.get("singlecell") else "spatial"
     )
-    
+
     if args['steps'] & 1:
-        args["R1"] = (
-            args.get("R1")
-            or data.get("R1")
-            or sys.exit("R1 is not specified in both parser and json")
-        )
-        args["R2"] = (
-            args.get("R2")
-            or data.get("R2")
-            or sys.exit("R2 is not specified in both parser and json")
-        )
+        if args.get('barcode_read') and args.get('R1'):
+            sys.exit("barcode_read and R1 are same things, duplicated settings")
+        if args.get('barcode_read'):
+            args['R1'] = args.pop('barcode_read')
+
+        if args.get('transcript_read') and args.get('R2'):
+            sys.exit("transcript_read and R2 are same things, duplicated settings")
+        if args.get('transcript_read'):
+            args['R2'] = args.pop('transcript_read')
+        
+        if not args["R1"]:
+            sys.exit("R1 is not specified in both parser and json")
+        if not args["R2"]:
+            sys.exit("R2 is not specified in both parser and json")
+        
         args["PrimerStructure"] = (
             args.get("PrimerStructure") or data.get("PrimerStructure") or "NA"
         )
@@ -319,6 +319,7 @@ def ASTRO(**kwargs):
         qualityfilter = (
             args.get("qualityfilter") or data.get("qualityfilter") or "25:0.75"
         )
+
         usedgtf = countfeature(args['gtffile'], args['threadnum'], args['options'], bcfile, args['outputfolder'], qualityfilter, args['genes2check'])
         
         if qualityfilter not in ['0:0','NA']:
@@ -369,7 +370,7 @@ def ASTRO(**kwargs):
 
         else:
             if qualityfilter not in ["0:0", "NA"]:
-                removeByDim = args.get("removeByDim") or data.get("removeByDim") or True
+                removeByDim = args.get("removeByDim", data.get("removeByDim", False))
                 if removeByDim:
                     from .featurefilter import featurefilter
                     args['filterlogratio'] = (

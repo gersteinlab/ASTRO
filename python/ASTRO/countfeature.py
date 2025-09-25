@@ -77,7 +77,7 @@ def inter_bed2geneFile(
             )
             # = (2 * overlap_length - read_length) / gtf_length
 
-            match_obj = re.match(r"^(\d+)_(\d+)_(\d+):(.+)$", readname)
+            match_obj = re.match(r"^(\d+)_([\d.\-]+)_([\d.\-]+):(.+)$", readname)
             if not match_obj:
                 raise RuntimeError(f"wrong read name format: {readname}")
 
@@ -654,7 +654,7 @@ def countfeature(
     tempfilteredsortedbam = os.path.join(outputfolder, "STAR/tempfiltered.sorted.bam")
     if os.path.isfile(tempfilteredsortedbam):
         tempfilteredbam = tempfilteredsortedbam
-    collatedbams = os.path.join(outputfolder, "STAR/tempfiltered.collated")
+    collatedbams = os.path.join(outputfolder, "STAR/tempfiltered.collated.bam")
     # collatedbed = os.path.join(outputfolder, "STAR/tempfiltered.bed")
     expmatbed = os.path.join(outputfolder, "expmat.bed")
     expmattsv = os.path.join(outputfolder, "expmat.tsv")
