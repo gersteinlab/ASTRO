@@ -349,6 +349,7 @@ def featurebed2mattsv(
             do_filter = False
 
     locations = load_barcodes(barcodes_file)
+    locations = list(dict.fromkeys(locations))
 
     if gtf_file:
         gene2num, num2gene = load_genes_from_gtf(gtf_file)
