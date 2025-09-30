@@ -53,8 +53,8 @@ def main():
     )
     parser.add_argument("--barcodemode", choices=["singlecell", "spatial"], help="Barcode processing mode: 'singlecell' or 'spatial'")
     parser.add_argument("--genes2check", help="path to a file listing targets to validate (each line must equal GTF col9)") 
-    parser.add_argument("--barcodeposition", default="NA")
-    parser.add_argument("--barcodelengthrange", default="NA")
+    parser.add_argument("--barcodeposition")
+    parser.add_argument("--barcodelengthrange")
     parser.add_argument("--threadnum", required=False)
     parser.add_argument(
         "--options",
@@ -66,7 +66,6 @@ def main():
     )
     parser.add_argument(
         "--STARparamfile4genome",
-        default="NA",
         help="whether change the input of STAR for genome mapping",
     )
     parser.add_argument("--qualityfilter", help="quality filter for reads")
@@ -80,7 +79,7 @@ def main():
         default="singleend",
         help="which Read Layout, singleend or pairedend",
     )
-    parser.add_argument("--limitOutSAMoneReadBytes4barcodeMapping", default="NA", help="limitOutSAMoneReadBytes for barcode mapping")
+    parser.add_argument("--limitOutSAMoneReadBytes4barcodeMapping", help="limitOutSAMoneReadBytes for barcode mapping")
     parser.add_argument("--not_organize_result", action="store_true", help="not try to organize outputfolder by removing tmp,  compresing files and moving important intermediate files to interim")
     parser.add_argument("--manually_set_barcode_details", action="store_true", help="not automatically set barcode details, mannually set by StructureBarcode, barcodeposition and barcodelengthrange")
 
