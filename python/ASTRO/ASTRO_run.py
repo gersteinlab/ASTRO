@@ -69,8 +69,8 @@ def main():
         help="whether change the input of STAR for genome mapping",
     )
     parser.add_argument("--qualityfilter", help="quality filter for reads")
-    parser.add_argument("--removeByDim", help="remove wrong features by dimension")
-    parser.add_argument("--filterlogratio", help="exclude extreme genes")
+    parser.add_argument("--addlowqreads", action="store_const", const=True,  default=None, help="add low quality reads which pass spatial-aware examination.")
+    parser.add_argument("--filterlogratio", help="filter genes by this log ratio")
     parser.add_argument(
         "--workflow", default="new", help="which workflow to run, old or new"
     )
@@ -80,8 +80,8 @@ def main():
         help="which Read Layout, singleend or pairedend",
     )
     parser.add_argument("--limitOutSAMoneReadBytes4barcodeMapping", help="limitOutSAMoneReadBytes for barcode mapping")
-    parser.add_argument("--not_organize_result", action="store_true", help="not try to organize outputfolder by removing tmp,  compresing files and moving important intermediate files to interim")
-    parser.add_argument("--manually_set_barcode_details", action="store_true", help="not automatically set barcode details, mannually set by StructureBarcode, barcodeposition and barcodelengthrange")
+    parser.add_argument("--not_organize_result", action="store_const", const=True,  default=None, help="not try to organize outputfolder by removing tmp,  compresing files and moving important intermediate files to interim")
+    parser.add_argument("--manually_set_barcode_details", action="store_const", const=True,  default=None, help="not automatically set barcode details, mannually set by StructureBarcode, barcodeposition and barcodelengthrange")
 
     args = parser.parse_args()
     workflow = args.workflow

@@ -198,10 +198,10 @@ The ASTRO script accepts parameters via the command line or a JSON file. The mai
       <td>Quality filter threshold; default "25:0.75" means filtering if AS &le; 25 and &le; 0.75 of gene length. Set to 0:0 or NA to disable</td>
     </tr>
     <tr>
-      <td>removeByDim</td>
+      <td>addlowqreads</td>
       <td>No</td>
       <td></td>
-      <td>True</td>
+      <td>False</td>
       <td>Whether to remove genes/barcodes with abnormal row/column variance. Set to False to skip</td>
     </tr>
     <tr>
@@ -276,7 +276,17 @@ The ASTRO script accepts parameters via the command line or a JSON file. The mai
       <td>
       If provided (a text file listing suspect genes, e.g. piRNAs/miRNAs), ASTRO runs an advanced check before feature counting. Genes failing this check are removed from the GTF annotation, effectively excluding them from the final expression matrix.
       </td>
-    </tr>  </tbody>
+    </tr>
+    <tr>
+      <td>not_organize_result</td>
+      <td>No</td>
+      <td>Step 3</td>
+      <td>False</td>
+      <td>
+      ASTRO automatically delete temp files and compress intermediate files, this option will disable this step and preserve intermediate and temp files without organization. 
+      </td>
+    </tr>
+  </tbody>
 </table>
 
 

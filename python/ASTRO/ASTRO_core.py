@@ -120,7 +120,7 @@ def ASTRO(**kwargs):
         if args.get(k) is None:
             args[k] = v
 
-    WHITELIST = {'options', 'threadnum', 'barcodemode', 'R1', 'R2', 'PrimerStructure', 'StructureUMI', 'StructureBarcode', 'filterlogratio', 'starref', 'barcode_read', 'transcript_read', 'qualityfilter', 'workflow', 'removeByDim', 'barcode_file', 'json_file_path', 'json_file_path1',
+    WHITELIST = {'options', 'threadnum', 'barcodemode', 'R1', 'R2', 'PrimerStructure', 'StructureUMI', 'StructureBarcode', 'filterlogratio', 'starref', 'barcode_read', 'transcript_read', 'qualityfilter', 'workflow', 'addlowqreads', 'barcode_file', 'json_file_path', 'json_file_path1',
     'gtffile', 'steps','outputfolder', 'STARparamfile4genome','genes2check', 'barcode_threshold', 'barcodelength', 'barcodeposition', 'barcodelengthrange', 'ReadLayout', 'limitOutSAMoneReadBytes4barcodeMapping',  'not_organize_result', 'manually_set_barcode_details'}
     invalid_keys = set(args.keys()) - WHITELIST
     if invalid_keys:
@@ -371,8 +371,8 @@ def ASTRO(**kwargs):
 
         else:
             if qualityfilter not in ["0:0", "NA"]:
-                removeByDim = args.get("removeByDim", data.get("removeByDim", False))
-                if removeByDim:
+                addlowqreads = args.get("addlowqreads", data.get("addlowqreads", False))
+                if addlowqreads:
                     from .featurefilter import featurefilter
                     args['filterlogratio'] = (
                         args.get('filterlogratio') or data.get('filterlogratio') or 2
