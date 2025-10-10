@@ -19,10 +19,10 @@ cd python
 pip install -e .  
 ## 2.4 Check if the installation was successful (If you see the help documentation, the installation is complete.):  
 ASTRO --help  
-filtmatbyrt --help  
+
 ## 2.5 After installation, the following executable scripts will be available in the command line:  
 ASTRO: Main pipeline entry point.  
-filtmatbyrt: Independent row-column filtering/merging tool.  
+
 
 - **Demultiplexing**: Adapter trimming, UMI, and Barcode splitting.
 - **Genome Mapping**: Uses STAR to align reads to the genome and optionally removes duplicate reads using either samtools markdup or a custom deduplication module.
@@ -47,20 +47,18 @@ cd python
 
 #### 2.3 Install dependencies and build/install:
 ```bash
-pip install -e .
+pip install .
 ```
 
 #### 2.4 Check if the installation was successful:
 If you see the help documentation, the installation is complete:
 ```bash
 ASTRO --help
-filtmatbyrt --help
 ```
 
 #### 2.5 Available executable scripts:
 After installation, the following executable scripts will be available in the command line:
 - **ASTRO**: Main pipeline entry point
-- **filtmatbyrt**: Independent row-column filtering/merging tool
 
 ### Alternative: Docker Installation
 
@@ -334,20 +332,6 @@ If options include H, it means that when a single read aligns to multiple genes,
 ### 3.2.2 M decides which way is used for remove depulicate reads.
 If options include M, samtools markdup will be used to mark and remove duplicate reads.  If M is not included, the built-in ASTRO deduplication logic will be used: This logic relies on UMIs and barcodes to determine duplicates and uses alignment score for filtering.
 
-## 3.3 Quality Filtering and Additional Tool: filtmatbyrt  
-This is a standalone script. If the removeByDim parameter is set to True, it will be automatically called in step 4 to perform row and column variance filtering, and the output will be saved as finalexpmat.tsv. If removeByDim is set to False, the script can also be run independently to further filter or merge an already generated expression matrix.  
-
-**Command example:**
-```bash
-filtmatbyrt good_expmat.tsv bad_expmat.tsv final_expmat.tsv 2
-```
-
-Here, good_expmat.tsv represents a "high-quality" expression matrix, bad_expmat.tsv represents a "suspicious or to-be-merged" expression matrix, and final_expmat.tsv is the filtered and merged output matrix. 2 indicates --filterlogratio=2.
-
-It can also be used with parameter syntax:
-```bash
-filtmatbyrt --expmatgood good_expmat.tsv --expmatbad bad_expmat.tsv --finalexpmat final_expmat.tsv --filterlogratio 2
-```
 
 # 4.A Simple Example
 
