@@ -68,6 +68,9 @@ The Docker image is hosted on Docker Hub and can be downloaded using the followi
 docker pull yc774/astro:v1.0
 ```
 
+### Alternative: Apptainer/Singularity
+You can also run ASTRO using Apptainer (formerly Singularity). Download the pre-built `.sif` container directly from [here](https://doi.org/10.5281/zenodo.17329668).
+
 # 3.Parameter Description
 The ASTRO script accepts parameters via the command line or a JSON file. The main parameters are listed below. Certain parameters are only required for specific steps. If these steps are executed (--steps control) but their parameters are missing, the program will perform a runtime check and exit with an error.
 <table>
