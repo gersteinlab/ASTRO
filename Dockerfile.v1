@@ -6,11 +6,11 @@ ARG MAMBA_DOCKERFILE_ACTIVATE=1
 SHELL ["/bin/bash", "-lc"]
 
 # Create a non-root user for safer runtime (optional but recommended)
-ARG USERNAME=astro
-ARG UID=1000
-ARG GID=1000
-RUN groupadd -g ${GID} ${USERNAME} \
- && useradd -m -u ${UID} -g ${GID} -s /bin/bash ${USERNAME}
+# ARG USERNAME=astro
+# ARG UID=1000
+# ARG GID=1000
+# RUN groupadd -g ${GID} ${USERNAME} \
+#  && useradd -m -u ${UID} -g ${GID} -s /bin/bash ${USERNAME}
 
 # Workdir to place sources and later run jobs (we'll switch to /data at runtime)
 WORKDIR /opt/astro
@@ -39,7 +39,7 @@ ENV PATH="/opt/conda/bin:${PATH}"
 
 # Create a neutral runtime workspace; switch to non-root
 RUN mkdir -p /data && chown -R ${USERNAME}:${USERNAME} /data
-USER ${USERNAME}
+# USER ${USERNAME}
 WORKDIR /data
 
 # Default to interactive shell; keep flexible for `docker run ... ASTRO ...`
