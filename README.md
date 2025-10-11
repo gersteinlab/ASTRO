@@ -65,7 +65,7 @@ After installation, the following executable scripts will be available in the co
 The Docker image is hosted on Docker Hub and can be downloaded using the following command:
 
 ```bash
-docker pull zhiyuanchu/astro:v1.0
+docker pull yc774/astro:v1.0
 ```
 
 # 3.Parameter Description
