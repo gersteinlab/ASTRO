@@ -1,24 +1,20 @@
-# ===== Base: micromamba for reproducible bio env =====
+# ===== ASTRO v1.0 (micromamba + bioconda; with scientific deps; non-editable install) =====
 FROM mambaorg/micromamba:1.5.8
 
-# Ensure conda env is activated in RUN
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
 SHELL ["/bin/bash", "-lc"]
+USER root
 
-# Create a non-root user for safer runtime (optional but recommended)
-# ARG USERNAME=astro
-# ARG UID=1000
-# ARG GID=1000
-# RUN groupadd -g ${GID} ${USERNAME} \
-#  && useradd -m -u ${UID} -g ${GID} -s /bin/bash ${USERNAME}
-
-# Workdir to place sources and later run jobs (we'll switch to /data at runtime)
 WORKDIR /opt/astro
 
-# --- System utilities (pigz/parallel help speed & fan-out) + bio stack ---
-# Pin key tools for reproducibility (v1.0 requires STAR/bedtools/samtools/cutadapt)
+
 RUN micromamba install -y -n base -c conda-forge -c bioconda \
     python=3.10 \
+    numpy \
+    scipy \
+    pandas \
+    statsmodels \
+    pysam \
     star=2.7.11b \
     samtools=1.20 \
     bedtools=2.31.1 \
@@ -27,20 +23,27 @@ RUN micromamba install -y -n base -c conda-forge -c bioconda \
     parallel \
  && micromamba clean -a -y
 
-# Copy only the Python package to keep image slim (adjust if you need bash/ scripts too)
+
 COPY python/ ./python/
 
-# Install ASTRO python package (exposes CLI: ASTRO / filtmatbyrt)
-RUN python -m pip install --no-cache-dir --upgrade pip \
- && python -m pip install --no-cache-dir -e ./python
 
-# Put conda bin in PATH explicitly (micromamba base env is default)
-ENV PATH="/opt/conda/bin:${PATH}"
+RUN micromamba run -n base python -V && micromamba run -n base which python
+RUN micromamba run -n base python -m pip install --no-cache-dir --upgrade pip
+RUN micromamba run -n base python -m pip install --no-cache-dir ./python
 
-# Create a neutral runtime workspace; switch to non-root
-RUN mkdir -p /data && chown -R ${USERNAME}:${USERNAME} /data
-# USER ${USERNAME}
+
+RUN ln -s /opt/conda/bin/python       /usr/local/bin/python  || true && \
+    ln -s /opt/conda/bin/pip          /usr/local/bin/pip     || true && \
+    ln -s /opt/conda/bin/ASTRO        /usr/local/bin/ASTRO   || true && \
+    ln -s /opt/conda/bin/filtmatbyrt  /usr/local/bin/filtmatbyrt || true && \
+    ln -s /opt/conda/bin/STAR         /usr/local/bin/STAR    || true && \
+    ln -s /opt/conda/bin/samtools     /usr/local/bin/samtools || true && \
+    ln -s /opt/conda/bin/bedtools     /usr/local/bin/bedtools || true && \
+    ln -s /opt/conda/bin/cutadapt     /usr/local/bin/cutadapt || true
+
+
+RUN mkdir -p /data && chown -R mambauser:mambauser /data
+USER mambauser
 WORKDIR /data
 
-# Default to interactive shell; keep flexible for `docker run ... ASTRO ...`
 CMD ["/bin/bash"]
