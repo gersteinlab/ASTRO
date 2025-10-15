@@ -252,6 +252,21 @@ The ASTRO script accepts parameters via the command line or a JSON file. The mai
       </td>
     </tr>
     <tr>
+      <td>barcodeposition</td>
+      <td>No</td>
+      <td>Step 1</td>
+      <td>"NA"</td>
+      <td>
+        Specifies the position for extracting barcodes from R2 barcode reads (index_fq after singleCutadapt processing). Two formats:<br/>
+        1) <code>&lt;start&gt;_&lt;len&gt;b</code>: Extract from the 5' end, where start is the starting position (1-based) and len is the length.<br/>
+        &nbsp;&nbsp;&nbsp;Example: <code>5_24b</code> extracts 24 bp starting from position 5 (positions 5-28).<br/>
+        2) <code>b&lt;len&gt;</code>: Extract the last len bases from the 3' end.<br/>
+        &nbsp;&nbsp;&nbsp;Example: <code>b16</code> extracts the last 16 bp.<br/>
+        Note: The <code>b&lt;len1&gt;_&lt;len2&gt;</code> format has limitations and is only valid when len2 &lt; len1. It extracts len2 bases from the len1-th position from the 3' end to the (len1-len2)-th position from the end.<br/>
+        When set to <code>"NA"</code>, if <code>manually_set_barcode_details=false</code> (default), the program will automatically infer this parameter based on <code>StructureBarcode</code> (via the <code>auto_set_barcodes()</code> function).
+      </td>
+    </tr>
+    <tr>
       <td>barcode_file</td>
       <td>No (for single-cell mode)<br/>Yes (for spatial mode)</td>
       <td>Step 1</td>
