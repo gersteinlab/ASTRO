@@ -86,8 +86,8 @@ def ASTRO(**kwargs):
                 - 4: Feature Counting and Filtering
                 - 7: All steps (1+2+4)
             outputfolder (str): Output directory path
-            R1 (str): Path to R1 FASTQ file (main RNA sequences)
-            R2 (str): Path to R2 FASTQ file (barcodes and UMIs)
+            R1 (str): Path to R1/barcode_read FASTQ file (barcodes and UMIs)
+            R2 (str): Path to R2/transcript_read FASTQ file (main RNA sequences)
             barcode_file (str): Path to barcode coordinate file
             starref (str): Path to STAR genome index directory
             gtffile (str): Path to GTF annotation file
