@@ -472,3 +472,7 @@ This feature relies on the BAM file (STAR/tempfiltered.bam) and its index (which
 
 # 8. legecy bash version
 For previous users who want to continue using the bash version of ASTRO, we have put the old bash version in *bash* folder. However, the legcay bash version is deprecated and we strongly suggest to move to the python version.
+
+# 9. ASTRO across different technologies
+Although ASTRO was designed for spatial whole-transcriptome profiling of FFPE samples, it is a flexible pipeline that can be applied across multiple platforms and technologies. We have tried ASTRO on several datasets to demonstrate this versatility. Scripts summarizing these practices are provided in the scalability/ folder, and some helpful intermediate files are available at https://zenodo.org/records/17329668.
+
