@@ -1,0 +1,32 @@
+# prepare gtf files, they are also in this Github repository
+zcat ../../Built_GTFs/mmu.mod.gtf.gz > mmu.mod.gtf 
+zcat ../../Built_GTFs/mmu.mod.gtf.gz | grep '__miRNA' | cut -f 9 | sort | uniq > mmu.mir2check.txt
+# please build STAR reference folder for mm39 as mm39_STARref/
+
+
+#download fastq files
+fasterq-dump SRR18685814 --split-files --include-technical -e 4 --progress -O ./
+rm SRR18685814_1.fastq SRR18685814_2.fastq # they are l1 l2
+pigz -p 4 SRR18685814_3.fastq
+pigz -p 4 SRR18685814_4.fastq
+mv SRR18685814_3.fastq.gz data/
+mv SRR18685814_4.fastq.gz data/
+
+# get expression matrix from original paper (GSM6034864)
+# put it in the data folder
+wget https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM6034nnn/GSM6034864/suppl/GSM6034864%5FVis%5FyPAP%5F3A.star.barcodes.tsv.gz
+wget https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM6034nnn/GSM6034864/suppl/GSM6034864%5FVis%5FyPAP%5F3A.star.features.tsv.gz
+wget https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM6034nnn/GSM6034864/suppl/GSM6034864%5FVis%5FyPAP%5F3A.star.matrix.mtx.gz
+mkdir -p data/GSM6034864/STAR/
+mv GSM6034864_Vis_yPAP_3A.star.barcodes.tsv.gz data/GSM6034864/STAR/barcodes.tsv.gz
+mv GSM6034864_Vis_yPAP_3A.star.features.tsv.gz data/GSM6034864/STAR/features.tsv.gz
+mv GSM6034864_Vis_yPAP_3A.star.matrix.mtx.gz data/GSM6034864/STAR/matrix.mtx.gz
+
+
+# data/visium-v1_coordinates.txt is widely used file for visium paltform form spaceranger v2.0
+# 10x genomics does not provide it directly, but many github 
+wget https://raw.githubusercontent.com/epi2me-labs/wf-single-cell/552957e4b76305dc626a6d013cdb8cc773e559a0/data/visium-v1_coordinates.txt
+mv visium-v1_coordinates.txt data/
+
+# run ASTRO
+ASTRO input.json

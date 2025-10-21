@@ -1,0 +1,14 @@
+{
+    "R1": "data/P4_B1_S1_R1.merged.fastq.gz",
+    "R2": "data/P4_B1_S1_R2.merged.fastq.gz",
+    "barcode_file": "data/GSM4565823_P4_rep1_tissue_positions_list.txt",
+    "PrimerStructure": "AAGCAGTGGTATCAACGCAGAGTACATGGG_b_A{10}",
+    "StructureUMI": "16_12",
+    "StructureBarcode": "0_16",
+    "threadnum": 16,
+    "steps": 7,
+    "outputfolder": "result/output/",
+    "gtffile": "hsa.mod.gtf",
+    "starref": "GRCh38_StarIndex/"
+}
+

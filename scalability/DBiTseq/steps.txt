@@ -1,0 +1,12 @@
+# prepare gtf files, they are also in this Github repository
+zcat ../../Built_GTFs/mmu.mod.gtf.gz > mmu.mod.gtf 
+zcat ../../Built_GTFs/mmu.mod.gtf.gz | grep '__miRNA' | cut -f 9 | sort | uniq > mmu.mir2check.txt
+# please build STAR reference folder for mm39: mm39_STARref/
+
+# collected data and put them in the data/ folder data/SLAM1_R1.fq.gz data/SLAM1_R2.fq.gz
+
+ASTRO parameter.json
+
+# since the fastq files have not been public
+# we provided expression matrix by ASTRO
+# the link is: DBiTseq_ASTRO_expmat.tsv.gz

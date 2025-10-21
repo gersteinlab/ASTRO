@@ -1,0 +1,24 @@
+{
+    "barcode_read": "data/SRR18128787_2.fastq.gz",
+    "transcript_read": "data/SRR18128787_1.fastq.gz",
+    "barcode_file": "result/extended_slidepixel.txt",
+    "outputfolder": "result/output/",
+    "starref": "mm39_STARref",
+    "gtffile": "mmu.mod.gtf",
+    "PrimerStructure": "NA",
+    "StructureUMI": "15_9",
+    "StructureBarcode": "1_14",
+    "genes2check": "cache/mmu.mir2check.txt",
+    "barcodeposition": "1_14b",
+    "barcodelengthrange": "12_16",
+    "threadnum": "16",
+    "options": "H",
+    "steps": 7,
+    "STARparamfile4genome": "NA",
+    "qualityfilter": null,
+    "removeByDim": false,
+    "not_organize_result": false,
+    "manually_set_barcode_details": true
+}
+
+ 

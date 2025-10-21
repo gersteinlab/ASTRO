@@ -1,0 +1,35 @@
+# prepare gtf files, they are also in this Github repository
+zcat ../../Built_GTFs/mmu.mod.gtf.gz > mmu.mod.gtf 
+zcat ../../Built_GTFs/mmu.mod.gtf.gz | grep '__miRNA' | cut -f 9 | sort | uniq > cache/mmu.mir2check.txt
+# please build STAR reference folder for mm39: mm39_STARref/
+
+#download fastq files
+mkdir -p data
+fasterq-dump SRR18128787 --split-files -e 4 --progress -O ./
+pigz -p 4 SRR18128787_1.fastq
+pigz -p 4 SRR18128787_2.fastq
+mv SRR18128787_1.fastq.gz data/
+mv SRR18128787_2.fastq.gz data/
+
+#download expression matrix from original paper
+# download GSM5915040_201104_07.digital_expression.txt.gz/ GSM5915040_201104_07_matched_bead_locations.txt.gz from GEO
+# mv it to data folder
+wget https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM5915nnn/GSM5915040/suppl/GSM5915040%5F201104%5F07.digital%5Fexpression.txt.gz
+mv GSM5915040_201104_07.digital_expression.txt.gz data/
+wget https://ftp.ncbi.nlm.nih.gov/geo/samples/GSM5915nnn/GSM5915040/suppl/GSM5915040%5F201104%5F07%5Fmatched%5Fbead%5Flocations.txt.gz
+mv GSM5915040_201104_07_matched_bead_locations.txt.gz data/
+
+# transfer slideseq pixels to ASTRO pixels
+# the difference is the existing of nonACGT nucleotides
+# original matrix is also 
+#paste <(head data/GSM5915040_201104_07.digital_expression.txt -n 1 | sed 's/\s/\n/g' | sed -n '2,$p') <(cut -f 2,3 data/GSM5915040_201104_07_matched_bead_locations.txt) > result/slidepixel.txt
+paste <( zcat data/GSM5915040_201104_07.digital_expression.txt.gz | head -n 1 | sed 's/\s/\n/g' | sed -n '2,$p') <(zcat data/GSM5915040_201104_07_matched_bead_locations.txt.gz | cut -f 2,3) > result/slidepixel.txt
+perl scripts/extendpixel.pl -i result/slidepixel.txt -o result/extended_slidepixel.txt
+#awk -F'\t' 'NR==FNR { idx[++n]=$1; next} { for(i=1;i<=n;i++) printf "%s%s", $(idx[i]), (i<n?FS:ORS) }' result/extended_slidepixel.txt.out data/GSM5915040_201104_07.digital_expression.txt > result/subset_exp.tsv
+awk -F'\t' 'NR==FNR { idx[++n]=$1; next} { for(i=1;i<=n;i++) printf "%s%s", $(idx[i]), (i<n?FS:ORS) }' result/extended_slidepixel.txt.out <(zcat data/GSM5915040_201104_07.digital_expression.txt) > result/subset_exp.tsv
+# result/subset_exp.tsv is big, so we provide as SlideSeq_custom_exp.tsv.gz by link
+
+# run ASTRO on slideseq datasets
+ASTRO cache/slide.json
+
+

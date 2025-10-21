@@ -1,0 +1,24 @@
+{
+    "barcode_file": "cache/SMARTposition.txt",
+    "threadnum": 16,
+    "outputfolder": "result/output/",
+    "gtffile": "hsa.mod.gtf",
+    "starref": "GRCh38_StarIndex/",
+    "barcodemode": "singlecell",
+    "options": "",
+    "steps": 6,
+    "STARparamfile4genome": "cache/starparam.txt",
+    "genes2check": "data/hsa.mir2check.txt",
+    "barcodeposition": "NA",
+    "barcodelengthrange": "NA",
+    "qualityfilter": null,
+    "filterlogratio": null,
+    "workflow": "new",
+    "ReadLayout": "singleend",
+    "limitOutSAMoneReadBytes4barcodeMapping": "NA",
+    "not_organize_result": false,
+    "manually_set_barcode_details": false,
+    "barcode_threshold": 100,
+    "barcodelength": 0
+}
+ 
