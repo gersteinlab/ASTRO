@@ -436,6 +436,11 @@ meaning we look for that fixed adapter on the 5' end, and once found, we keep th
 
 This approach gives flexibility in cases where the read length or positions vary slightly, as long as the bounding sequences remain identifiable.
 
+## 6.3 pre-generated GTF annotation files
+
+ASTRO requires specialized GTF files for its operation. As the construction of these files can be complex, we have pre-generated GTF files for the human (GRCh38) and mouse (mm39) genomes to facilitate efficient analysis. The pre-built files are provided in the Built_GTFs/ directory.
+
+
 # 7. Genes2Check Advanced Filtering
 
 If your experiment includes some suspicious genes (for example, piRNA or miRNA), you can list their gene IDs or gene names in a text file (e.g., genes2check.txt) and specify this file in the ASTRO parameters using --genes2check genes2check.txt (or by adding "genes2check": "genes2check.txt" in the JSON). When running Step 4 (Feature Counting), ASTRO will call its built-in advanced detection logic (getvalidedgtf_parallel) to determine whether to discard these suspicious genes based on their over-enrichment in corresponding control regions. If anomalous enrichment is detected, those entries will be removed before formal counting, thereby reducing false positives and yielding a more accurate gene expression matrix.
