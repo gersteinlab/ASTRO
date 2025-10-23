@@ -8,59 +8,33 @@ Genome Mapping: Uses STAR to align reads to the genome and optionally removes du
 Feature Counting: Calculates gene expression from alignment results based on GTF annotation files and outputs an expression matrix.  
 Feature Filtering: Filters out low-quality or abnormal genes/barcodes based on user-defined thresholds.  
 
-# 2.Installation Guide  
-External dependencies: ASTRO requires the following external tools to function- STAR, bedtools, samtools, and cutadapt. If you have Python 3.6+ installed locally, follow these steps to set it up.  
-Install from source repository or compressed package:  
-## 2.1 Clone the repository:  
-git clone git@github.com:gersteinlab/ASTRO.git  
-## 2.2 Enter the directory named "python":  
-cd python  
-## 2.3 Install dependencies and build/install:  
-pip install -e .  
-## 2.4 Check if the installation was successful (If you see the help documentation, the installation is complete.):  
-ASTRO --help  
-
-## 2.5 After installation, the following executable scripts will be available in the command line:  
-ASTRO: Main pipeline entry point.  
-
-
-- **Demultiplexing**: Adapter trimming, UMI, and Barcode splitting.
-- **Genome Mapping**: Uses STAR to align reads to the genome and optionally removes duplicate reads using either samtools markdup or a custom deduplication module.
-- **Feature Counting### 6.2 Two ways to write (or "point to") barcode/UMI locations in R2*: Calculates gene expression from alignment results based on GTF annotation files and outputs an expression matrix.
-- **Feature Filtering**: Filters out low-quality or abnormal genes/barcodes based on user-defined thresholds.
-
-## 2. Installation Guide
+# 2. Installation Guide
 
 **External dependencies**: ASTRO requires the following external tools to function - STAR, bedtools, samtools, and cutadapt. If you have Python 3.6+ installed locally, follow these steps to set it up.
+You can install from source repository or compressed package:
 
-### Install from source repository or compressed package:
-
-#### 2.1 Clone the repository:
+## 2.1 Clone the repository:
 ```bash
 git clone git@github.com:gersteinlab/ASTRO.git
 ```
 
-#### 2.2 Enter the directory named "python":
+## 2.2 Enter the directory named "python":
 ```bash
 cd python
 ```
 
-#### 2.3 Install dependencies and build/install:
+## 2.3 Install dependencies and build/install:
 ```bash
 pip install .
 ```
 
-#### 2.4 Check if the installation was successful:
+## 2.4 Check if the installation was successful:
 If you see the help documentation, the installation is complete:
 ```bash
 ASTRO --help
 ```
 
-#### 2.5 Available executable scripts:
-After installation, the following executable scripts will be available in the command line:
-- **ASTRO**: Main pipeline entry point
-
-### Alternative: Docker Installation
+## Alternative: Docker Installation
 
 The Docker image is hosted on Docker Hub and can be downloaded using the following command:
 
@@ -68,8 +42,8 @@ The Docker image is hosted on Docker Hub and can be downloaded using the followi
 docker pull yc774/astro:v1.0
 ```
 
-### Alternative: Apptainer/Singularity
-You can also run ASTRO using Apptainer (formerly Singularity). Download the pre-built `.sif` container directly from [here](https://doi.org/10.5281/zenodo.17329668).
+## Alternative: Apptainer/Singularity
+You can also run ASTRO using Apptainer (formerly Singularity). Download the pre-built `.sif` container directly from Zenodo (`https://doi.org/10.5281/zenodo.17329668`) or Gerstein lab website (`http://archive2.gersteinlab.org/proj/ASTRO/`).
 
 # 3.Parameter Description
 The ASTRO script accepts parameters via the command line or a JSON file. The main parameters are listed below. Certain parameters are only required for specific steps. If these steps are executed (--steps control) but their parameters are missing, the program will perform a runtime check and exit with an error.

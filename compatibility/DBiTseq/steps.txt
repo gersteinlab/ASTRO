@@ -9,4 +9,65 @@ ASTRO parameter.json
 
 # since the fastq files have not been public
 # we provided expression matrix by ASTRO
-# the link is: DBiTseq_ASTRO_expmat.tsv.gz
+# the file is in Getstein lab website: http://archive2.gersteinlab.org/proj/ASTRO/
+# the file link is in: http://archive2.gersteinlab.org/proj/ASTRO/DBiTseq_ASTRO_expmat.tsv.gz
+
+# ST-pipeline was done like this:
+# download gencode annotation for ST-pipeline/
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M11/gencode.vM11.annotation.gtf.gz
+gunzip gencode.vM11.annotation.gtf.gz 
+mv gencode.vM11.annotation.gtf data/
+
+
+# ST-pipeline steps
+    WKDIR=data/
+    OUTDIR=cache/
+    
+    bbduk.sh \
+    in1=${WKDIR}/SLAM1_CKDL250021758-1A_22V3NLLT4_L7_1.fq.gz \
+    in2=${WKDIR}/SLAM1_CKDL250021758-1A_22V3NLLT4_L7_2.fq.gz \
+    outm1=${OUTDIR}/raw_qc_linker1_R1.fastq.gz \
+    outm2=${OUTDIR}/raw_qc_linker1_R2.fastq.gz \
+    k=30 mm=f rcomp=f restrictleft=108 skipr1=t \
+    hdist=3 \
+    stats=cache/stats.linker1.txt \
+    threads=4 \
+    literal=GTGGCCGATGTTTCGCATCGGCGTACGACT
+    
+    bbduk.sh \
+    in1=${OUTDIR}/raw_qc_linker1_R1.fastq.gz \
+    in2=${OUTDIR}/raw_qc_linker1_R2.fastq.gz \
+    outm1=${OUTDIR}/raw_qc_R1.fastq.gz \
+    outm2=${OUTDIR}/raw_qc_R2.fastq.gz \
+    k=30 mm=f rcomp=f restrictleft=70 skipr1=t \
+    hdist=3 \
+    stats=cache/stats.linker2.txt \
+    threads=4 \
+    literal=ATCCACGTGCTTGAGAGGCCAGAGCATTCG
+    
+    input=${OUTDIR}/raw_qc_R2.fastq.gz
+    output=${OUTDIR}/R2_processed.fastq
+    python scripts/gen_barcode_umi.py --input $input --output $output
+    
+    
+    st_pipeline_run.py \
+      --expName SLAM1 \
+      --ids data/spatial_barcodes100.txt \
+      --ref-map mm39_STARref \
+      --log-file /vast/palmer/scratch/jun_lu/dz287/colab/cz357/250909_SLAM1/SLAM1_ST/SLAM1_st_log.txt \
+      --output-folder result/STpipelineOUTPUT/ \
+      --ref-annotation data/gencode.vM11.annotation.gtf \
+      --htseq-no-ambiguous \
+      --htseq-features gene \
+      --verbose \
+      --demultiplexing-kmer 5 \
+      --threads 20 \
+      --temp-folder temp/ \
+      --no-clean-up \
+      --umi-start-position 16 \
+      --umi-end-position 26 \
+      --demultiplexing-overhang 0 \
+      --min-length-qual-trimming 20 \
+      cache/R2_processed.fastq.gz \
+      cache/raw_qc_R1.fastq.gz
+

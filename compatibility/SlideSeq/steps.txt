@@ -27,7 +27,8 @@ paste <( zcat data/GSM5915040_201104_07.digital_expression.txt.gz | head -n 1 | 
 perl scripts/extendpixel.pl -i result/slidepixel.txt -o result/extended_slidepixel.txt
 #awk -F'\t' 'NR==FNR { idx[++n]=$1; next} { for(i=1;i<=n;i++) printf "%s%s", $(idx[i]), (i<n?FS:ORS) }' result/extended_slidepixel.txt.out data/GSM5915040_201104_07.digital_expression.txt > result/subset_exp.tsv
 awk -F'\t' 'NR==FNR { idx[++n]=$1; next} { for(i=1;i<=n;i++) printf "%s%s", $(idx[i]), (i<n?FS:ORS) }' result/extended_slidepixel.txt.out <(zcat data/GSM5915040_201104_07.digital_expression.txt) > result/subset_exp.tsv
-# result/subset_exp.tsv is big, so we provide as SlideSeq_custom_exp.tsv.gz by link
+# result/subset_exp.tsv is big, so we provide as SlideSeq_custom_exp.tsv.gz in Gerstein lab website: http://archive2.gersteinlab.org/proj/ASTRO/
+# The link should be: http://archive2.gersteinlab.org/proj/ASTRO/SlideSeq_custom_exp.tsv.gz
 
 # run ASTRO on slideseq datasets
 ASTRO cache/slide.json
