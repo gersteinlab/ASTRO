@@ -1,6 +1,5 @@
 # ASTRO
-
-The usage instructions for the ASTRO Python package are as follows.
+The usage instructions for the ASTRO Python package are as follows. Our code has also been made available on Zenodo (https://zenodo.org/records/17913760; doi: 10.5281/zenodo.17913760).
 
 # 1. Functional Overview
 Demultiplexing: Adapter trimming, UMI, and Barcode splitting.  
