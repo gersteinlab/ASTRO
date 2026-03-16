@@ -1,6 +1,8 @@
 # ASTRO
 The usage instructions for the ASTRO Python package are as follows. Our code has also been made available on Zenodo (https://zenodo.org/records/17913760; doi: 10.5281/zenodo.17913760).
 
+This method has been published in Bioinformatics (https://doi.org/10.1093/bioinformatics/btaf688).
+
 # 1. Functional Overview
 Demultiplexing: Adapter trimming, UMI, and Barcode splitting.  
 Genome Mapping: Uses STAR to align reads to the genome and optionally removes duplicate reads using either samtools markdup or a custom deduplication module.  
