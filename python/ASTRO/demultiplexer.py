@@ -796,8 +796,8 @@ def get_barcode_for_single_cell(
 ):
     barcode_threshold = int(barcode_threshold)
     os.makedirs(os.path.join(outputfolder, 'temps'), exist_ok=True)
-    CleanFq1 = os.path.join(outputfolder, "temps/cleanfq1.fq")
-    CleanFq2 = os.path.join(outputfolder, "temps/cleanfq2.fq")
+    CleanFq1 = os.path.join(outputfolder, "temps/CleanFq1.fq")
+    CleanFq2 = os.path.join(outputfolder, "temps/CleanFq2.fq")
     CombineFq = os.path.join(outputfolder, "combine.fq")
     barcode_db_fa = os.path.join(outputfolder, "temps/barcode_xy.fasta")
     barcode_db_path = os.path.join(outputfolder, "temps/barcode_db")
