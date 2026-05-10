@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 import argparse
+import gzip
 import json
+import os
 import re
 import subprocess
 import sys
@@ -147,13 +149,139 @@ def main(argv=None):
         action="store_true",
         help="Skip PNG plot generation.",
     )
+    velocity_parser.add_argument(
+        "--no-notebook",
+        action="store_true",
+        help="Skip writing the output inspection notebook.",
+    )
+    velocity_parser.add_argument(
+        "--no-force-exit",
+        action="store_true",
+        help="Do not force the CLI process to exit after all outputs are written.",
+    )
     velocity_parser.set_defaults(func=run_velocity)
+
+    velocity2_parser = subparsers.add_parser(
+        "velocity2",
+        help="Run RNA velocity from an existing ASTRO expmat.bed using sparse matrices.",
+    )
+    velocity2_parser.add_argument(
+        "--10xinput",
+        dest="tenxinput",
+        required=True,
+        help="10x output folder used to load spot positions.",
+    )
+    velocity2_parser.add_argument(
+        "--gtf",
+        help="Accepted for command compatibility; expmat.bed already contains feature assignments.",
+    )
+    velocity2_parser.add_argument(
+        "--output",
+        required=True,
+        help="Output directory that already contains astro_velocity_count/expmat.bed.",
+    )
+    velocity2_parser.add_argument(
+        "--positions",
+        help="Optional Visium tissue positions file. Defaults to tissue_positions*.csv under --10xinput.",
+    )
+    velocity2_parser.add_argument(
+        "--umap",
+        help="Optional CSV/TSV with cell id, UMAP_1, and UMAP_2 columns.",
+    )
+    velocity2_parser.add_argument(
+        "--clusters",
+        help="Optional CSV/TSV with cell id and cluster columns.",
+    )
+    velocity2_parser.add_argument(
+        "--cluster-key",
+        default="clusters",
+        help="obs column name for clusters when --clusters is provided.",
+    )
+    velocity2_parser.add_argument(
+        "--cluster-column",
+        help="Column name in --clusters to use as cluster labels.",
+    )
+    velocity2_parser.add_argument(
+        "--basis",
+        default="umap",
+        help="Embedding basis for velocity plots, for example umap or space.",
+    )
+    velocity2_parser.add_argument(
+        "--color",
+        help="obs column or variable used to color plots.",
+    )
+    velocity2_parser.add_argument(
+        "--mode",
+        default="steady_state",
+        choices=["steady_state", "deterministic", "stochastic", "dynamical"],
+        help="scVelo velocity mode. steady_state is treated as deterministic.",
+    )
+    velocity2_parser.add_argument(
+        "--min-shared-counts",
+        type=int,
+        default=20,
+        help="Minimum shared counts for scv.pp.filter_and_normalize.",
+    )
+    velocity2_parser.add_argument(
+        "--n-top-genes",
+        type=int,
+        help="Optional number of top genes for scv.pp.filter_and_normalize.",
+    )
+    velocity2_parser.add_argument(
+        "--n-pcs",
+        type=int,
+        default=30,
+        help="Number of PCs for scv.pp.moments.",
+    )
+    velocity2_parser.add_argument(
+        "--n-neighbors",
+        type=int,
+        default=30,
+        help="Number of neighbors for scv.pp.moments.",
+    )
+    velocity2_parser.add_argument(
+        "--n-jobs",
+        type=int,
+        default=1,
+        help="Number of jobs for scVelo steps that support parallel execution.",
+    )
+    velocity2_parser.add_argument(
+        "--qualityfilter",
+        default="25:0.75",
+        help="ASTRO-style feature filter, for example 25:0.75 or 0:0.",
+    )
+    velocity2_parser.add_argument(
+        "--progress-interval",
+        type=int,
+        default=1000000,
+        help="Print progress every N records while reading large intermediate files.",
+    )
+    velocity2_parser.add_argument(
+        "--no-plots",
+        action="store_true",
+        help="Skip PNG plot generation.",
+    )
+    velocity2_parser.add_argument(
+        "--no-notebook",
+        action="store_true",
+        help="Skip writing the output inspection notebook.",
+    )
+    velocity2_parser.add_argument(
+        "--no-force-exit",
+        action="store_true",
+        help="Do not force the CLI process to exit after all outputs are written.",
+    )
+    velocity2_parser.set_defaults(func=run_velocity2)
 
     args = parser.parse_args(argv)
     if not hasattr(args, "func"):
         parser.print_help()
         return 1
     args.func(args)
+    if args.command in {"velocity", "velocity2"} and not getattr(args, "no_force_exit", False):
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(0)
     return 0
 
 
@@ -166,6 +294,86 @@ def run_velocity(args):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     adata, source = _read_velocity_input(args, input_dir, output_dir, libs)
+    _run_velocity_analysis(adata, args, source, output_dir, libs)
+
+
+def run_velocity2(args):
+    input_dir = Path(args.tenxinput).expanduser().resolve()
+    output_dir = Path(args.output).expanduser().resolve()
+    h5ad_path = output_dir / "rna_velocity.h5ad"
+
+    if h5ad_path.exists():
+        source = "existing RNA velocity output"
+        summary_path = output_dir / "run_summary.json"
+        if summary_path.exists():
+            try:
+                summary = json.loads(summary_path.read_text())
+                source = summary.get("source", source)
+            except json.JSONDecodeError:
+                pass
+        notebook_path = _write_velocity_notebook(output_dir, source, args)
+        print(f"Wrote RNA velocity report notebook to {notebook_path}")
+        return
+
+    _log_status("velocity2: loading scVelo/Scanpy libraries")
+    libs = _load_velocity_libraries()
+    count_dir = output_dir / "astro_velocity_count"
+    expmat_bed = _first_existing_path(count_dir / "expmat.bed", output_dir / "expmat.bed")
+    read_map = _first_existing_path(count_dir / "read_map.tsv", output_dir / "read_map.tsv")
+
+    if expmat_bed is None:
+        raise SystemExit(
+            "velocity2 requires an existing ASTRO feature BED at "
+            f"{count_dir / 'expmat.bed'} or {output_dir / 'expmat.bed'}"
+        )
+    if read_map is None:
+        raise SystemExit(
+            "velocity2 requires the read-to-UMI map from velocity counting at "
+            f"{count_dir / 'read_map.tsv'} or {output_dir / 'read_map.tsv'}"
+        )
+
+    _log_status("velocity2: loading spot coordinates")
+    positions_path = _find_positions_file(args, input_dir)
+    if positions_path is not None:
+        _barcode_to_xy, ordered_locs, loc_to_xy = _load_10x_spot_coordinates(positions_path, libs)
+    else:
+        barcodes_file = count_dir / "astro_barcodes.tsv"
+        if not barcodes_file.exists():
+            raise SystemExit(
+                "velocity2 needs spot coordinates. Provide --positions, put a "
+                "10x tissue_positions file under --10xinput, or keep "
+                f"{barcodes_file} from the first velocity run."
+            )
+        ordered_locs, loc_to_xy = _load_astro_barcode_locations(barcodes_file)
+
+    _log_status(f"velocity2: building sparse AnnData from {expmat_bed}")
+    adata, matrix_stats = _sparse_adata_from_astro_expmat(
+        expmat_bed=expmat_bed,
+        read_map=read_map,
+        output_dir=output_dir,
+        ordered_locs=ordered_locs,
+        loc_to_xy=loc_to_xy,
+        args=args,
+        libs=libs,
+    )
+    _log_status(
+        "velocity2: sparse matrix built "
+        f"({matrix_stats['cells']} cells, {matrix_stats['genes']} genes, "
+        f"{matrix_stats['counted_umis']} counted UMIs)"
+    )
+    _log_status("velocity2: running scVelo analysis")
+    _run_velocity_analysis(
+        adata,
+        args,
+        f"sparse ASTRO matrix from {expmat_bed}",
+        output_dir,
+        libs,
+        summary_extra={"sparse_matrix": matrix_stats},
+    )
+
+
+def _run_velocity_analysis(adata, args, source, output_dir, libs, summary_extra=None):
+    np, pd, sc, scv, ad, sparse, plt = libs
     adata = _add_optional_metadata(adata, args, libs)
 
     if "X_space" not in adata.obsm:
@@ -175,7 +383,9 @@ def run_velocity(args):
     filter_kwargs = {"min_shared_counts": args.min_shared_counts}
     if args.n_top_genes is not None:
         filter_kwargs["n_top_genes"] = args.n_top_genes
+    _log_status("scVelo: filter_and_normalize")
     scv.pp.filter_and_normalize(adata, **filter_kwargs)
+    _log_status("scVelo: moments")
     scv.pp.moments(adata, n_pcs=args.n_pcs, n_neighbors=args.n_neighbors)
 
     basis_name = _basis_name(args.basis)
@@ -185,8 +395,11 @@ def run_velocity(args):
 
     scvelo_mode = "deterministic" if args.mode == "steady_state" else args.mode
     if scvelo_mode == "dynamical":
+        _log_status("scVelo: recover_dynamics")
         scv.tl.recover_dynamics(adata, n_jobs=args.n_jobs)
+    _log_status(f"scVelo: velocity mode={scvelo_mode}")
     scv.tl.velocity(adata, mode=scvelo_mode)
+    _log_status("scVelo: velocity_graph")
     scv.tl.velocity_graph(adata, n_jobs=args.n_jobs)
 
     for step_name, step_func in (
@@ -214,6 +427,10 @@ def run_velocity(args):
     if not args.no_plots:
         outputs.extend(_write_velocity_plots(adata, args, output_dir, scv, plt))
 
+    if not getattr(args, "no_notebook", False):
+        notebook_path = _write_velocity_notebook(output_dir, source, args)
+        outputs.append(str(notebook_path))
+
     summary = {
         "source": source,
         "cells": int(adata.n_obs),
@@ -223,6 +440,8 @@ def run_velocity(args):
         "basis": basis_name,
         "outputs": outputs,
     }
+    if summary_extra:
+        summary.update(summary_extra)
     summary_path = output_dir / "run_summary.json"
     summary_path.write_text(json.dumps(summary, indent=2) + "\n")
     outputs.append(str(summary_path))
@@ -249,6 +468,13 @@ def _load_velocity_libraries():
             f"Dependency import failed with: {exc}"
         ) from exc
     return np, pd, sc, scv, ad, sparse, plt
+
+
+def _first_existing_path(*paths):
+    for path in paths:
+        if path.exists():
+            return path
+    return None
 
 
 def _read_velocity_input(args, input_dir, output_dir, libs):
@@ -389,29 +615,46 @@ def _read_10x_bam_with_astro(args, input_dir, output_dir, bam_path, libs):
     count_dir = output_dir / "astro_velocity_count"
     count_dir.mkdir(parents=True, exist_ok=True)
 
+    gtf_chroms = _load_gtf_chroms(gtf_path)
     barcode_to_xy, ordered_locs, loc_to_xy = _load_10x_spot_coordinates(positions_path, libs)
     barcodes_file = count_dir / "astro_barcodes.tsv"
     _write_astro_barcodes(barcodes_file, barcode_to_xy)
 
     astro_bed = count_dir / "10x_astro.bed"
+    gtf_chrom_bed = count_dir / "10x_astro.gtfchrom.bed"
     read_map = count_dir / "read_map.tsv"
-    stats = _write_astro_bed_from_10x_bam(
-        bam_path=bam_path,
-        output_bed=astro_bed,
-        read_map=read_map,
-        barcode_to_xy=barcode_to_xy,
-        args=args,
-    )
-    if stats["written_reads"] == 0:
+    reused_intermediate = astro_bed.exists() and read_map.exists()
+    if reused_intermediate:
+        stats = {
+            "reused_intermediate": True,
+            "bed": str(astro_bed),
+            "read_map": str(read_map),
+        }
+    else:
+        stats = _write_astro_bed_from_10x_bam(
+            bam_path=bam_path,
+            output_bed=astro_bed,
+            read_map=read_map,
+            barcode_to_xy=barcode_to_xy,
+            gtf_chroms=gtf_chroms,
+            args=args,
+        )
+    if not reused_intermediate and stats["written_reads"] == 0:
         raise SystemExit(
             "No mapped BAM records could be matched to tissue positions. Check "
             f"the BAM barcode tag ({args.barcode_tag}) and the positions file."
         )
+    overlap_bed, chrom_stats = _prepare_astro_bed_for_gtf(
+        astro_bed,
+        gtf_chrom_bed,
+        gtf_chroms,
+    )
+    stats["chromosome_fix"] = chrom_stats
 
     from .countfeature import inter_bed2geneFile
 
     expmat_bed = count_dir / "expmat.bed"
-    inter_bed2geneFile(str(astro_bed), str(expmat_bed), str(gtf_path))
+    inter_bed2geneFile(str(overlap_bed), str(expmat_bed), str(gtf_path))
 
     adata, matrix_stats = _adata_from_astro_expmat(
         expmat_bed=expmat_bed,
@@ -430,7 +673,7 @@ def _read_10x_bam_with_astro(args, input_dir, output_dir, bam_path, libs):
         "matrix": matrix_stats,
     }
 
-    if not args.keep_temp:
+    if not args.keep_temp and not reused_intermediate:
         for path in (astro_bed, read_map):
             try:
                 path.unlink()
@@ -522,7 +765,109 @@ def _write_astro_barcodes(barcodes_file, barcode_to_xy):
             fout.write(f"{barcode}\t{x}\t{y}\n")
 
 
-def _write_astro_bed_from_10x_bam(bam_path, output_bed, read_map, barcode_to_xy, args):
+def _load_astro_barcode_locations(barcodes_file):
+    ordered_locs = []
+    loc_to_xy = {}
+    with barcodes_file.open() as fin:
+        for line in fin:
+            parts = line.rstrip("\n").split("\t")
+            if len(parts) < 3:
+                continue
+            x, y = parts[1], parts[2]
+            loc = f"{x}_{y}"
+            if loc not in loc_to_xy:
+                ordered_locs.append(loc)
+                loc_to_xy[loc] = (x, y)
+    if not ordered_locs:
+        raise SystemExit(f"No barcode coordinates were loaded from {barcodes_file}.")
+    return ordered_locs, loc_to_xy
+
+
+def _load_gtf_chroms(gtf_path):
+    chroms = set()
+    opener = gzip.open if str(gtf_path).endswith(".gz") else open
+    with opener(gtf_path, "rt") as fin:
+        for line in fin:
+            if not line or line.startswith("#"):
+                continue
+            fields = line.rstrip("\n").split("\t")
+            if fields and fields[0]:
+                chroms.add(fields[0])
+    if not chroms:
+        raise SystemExit(f"No chromosome names were found in GTF: {gtf_path}")
+    return chroms
+
+
+def _chrom_for_gtf(chrom, gtf_chroms):
+    for candidate in _chrom_candidates(chrom):
+        if candidate in gtf_chroms:
+            return candidate
+    return None
+
+
+def _chrom_candidates(chrom):
+    candidates = [chrom]
+    if chrom.startswith("chr"):
+        stripped = chrom[3:]
+        candidates.append(stripped)
+        if stripped == "M":
+            candidates.extend(["MT", "M"])
+    else:
+        candidates.append(f"chr{chrom}")
+        if chrom in ("M", "MT"):
+            candidates.extend(["chrM", "chrMT"])
+    return candidates
+
+
+def _prepare_astro_bed_for_gtf(input_bed, output_bed, gtf_chroms):
+    stats = {
+        "input_bed": str(input_bed),
+        "bed_for_overlap": str(input_bed),
+        "records": 0,
+        "converted": 0,
+        "skipped_chrom_not_in_gtf": 0,
+    }
+    needs_output = False
+    with input_bed.open() as fin:
+        for line in fin:
+            if not line.strip():
+                continue
+            fields = line.rstrip("\n").split("\t")
+            chrom = _chrom_for_gtf(fields[0], gtf_chroms) if fields else None
+            if chrom is None:
+                needs_output = True
+            elif chrom != fields[0]:
+                needs_output = True
+            break
+
+    if not needs_output:
+        return input_bed, stats
+
+    with input_bed.open() as fin, output_bed.open("w") as fout:
+        for line in fin:
+            if not line.strip():
+                continue
+            stats["records"] += 1
+            fields = line.rstrip("\n").split("\t")
+            chrom = _chrom_for_gtf(fields[0], gtf_chroms)
+            if chrom is None:
+                stats["skipped_chrom_not_in_gtf"] += 1
+                continue
+            if chrom != fields[0]:
+                stats["converted"] += 1
+                fields[0] = chrom
+            fout.write("\t".join(fields) + "\n")
+
+    if stats["records"] == stats["skipped_chrom_not_in_gtf"]:
+        raise SystemExit(
+            "All BED records were skipped because their chromosomes are absent "
+            "from the GTF. Check that BAM and GTF use the same reference."
+        )
+    stats["bed_for_overlap"] = str(output_bed)
+    return output_bed, stats
+
+
+def _write_astro_bed_from_10x_bam(bam_path, output_bed, read_map, barcode_to_xy, gtf_chroms, args):
     stats = {
         "sam_records": 0,
         "written_reads": 0,
@@ -531,6 +876,8 @@ def _write_astro_bed_from_10x_bam(bam_path, output_bed, read_map, barcode_to_xy,
         "barcode_not_in_positions": 0,
         "missing_umi": 0,
         "missing_blocks": 0,
+        "chrom_name_converted": 0,
+        "chrom_not_in_gtf": 0,
     }
     cmd = ["samtools", "view", "-F", "2308", str(bam_path)]
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, text=True)
@@ -558,7 +905,13 @@ def _write_astro_bed_from_10x_bam(bam_path, output_bed, read_map, barcode_to_xy,
                 stats["missing_umi"] += 1
                 umi = fields[0]
 
-            chrom = fields[2]
+            bam_chrom = fields[2]
+            chrom = _chrom_for_gtf(bam_chrom, gtf_chroms)
+            if chrom is None:
+                stats["chrom_not_in_gtf"] += 1
+                continue
+            if chrom != bam_chrom:
+                stats["chrom_name_converted"] += 1
             pos = int(fields[3])
             cigar = fields[5]
             blocks = _cigar_to_bed_blocks(pos, cigar)
@@ -737,12 +1090,151 @@ def _adata_from_astro_expmat(expmat_bed, read_map, output_dir, ordered_locs, loc
     return adata, stats
 
 
-def _load_read_map(read_map):
+def _sparse_adata_from_astro_expmat(expmat_bed, read_map, output_dir, ordered_locs, loc_to_xy, args, libs):
+    np, pd, _sc, _scv, ad, sparse, _plt = libs
+    read_info = _load_read_map(read_map, getattr(args, "progress_interval", 0))
+    _log_status(f"velocity2: loaded {len(read_info)} read-to-UMI records")
+    filter_settings = _parse_qualityfilter(args.qualityfilter)
+
+    loc_to_index = {loc: idx for idx, loc in enumerate(ordered_locs)}
+    gene_to_index = {}
+    genes = []
+    counts = {
+        "spliced": defaultdict(int),
+        "unspliced": defaultdict(int),
+    }
+    seen_umis = set()
+    used_loc_indices = set()
+    stats = {
+        "feature_lines": 0,
+        "counted_umis": 0,
+        "deduplicated_umis": 0,
+        "missing_read_map": 0,
+        "missing_velocity_suffix": 0,
+        "quality_filtered": 0,
+    }
+
+    with expmat_bed.open() as fin:
+        for line in fin:
+            line = line.strip()
+            if not line:
+                continue
+            stats["feature_lines"] += 1
+            if args.progress_interval and stats["feature_lines"] % args.progress_interval == 0:
+                _log_status(
+                    "velocity2: parsed "
+                    f"{stats['feature_lines']} expmat.bed lines, "
+                    f"{stats['counted_umis']} counted UMIs"
+                )
+            parsed = _parse_astro_feature_line(line, filter_settings)
+            if parsed is None:
+                stats["quality_filtered"] += 1
+                continue
+            read_id, gene_feature = parsed
+            read_record = read_info.get(read_id)
+            if read_record is None:
+                stats["missing_read_map"] += 1
+                continue
+
+            gene_name, layer = _split_astro_velocity_feature(gene_feature)
+            if layer is None:
+                stats["missing_velocity_suffix"] += 1
+                continue
+
+            loc, _barcode, umi = read_record
+            loc_idx = loc_to_index.get(loc)
+            if loc_idx is None:
+                loc_idx = len(ordered_locs)
+                loc_to_index[loc] = loc_idx
+                ordered_locs.append(loc)
+                loc_to_xy[loc] = _xy_from_loc(loc)
+
+            gene_idx = gene_to_index.get(gene_name)
+            if gene_idx is None:
+                gene_idx = len(genes)
+                gene_to_index[gene_name] = gene_idx
+                genes.append(gene_name)
+
+            layer_id = 0 if layer == "spliced" else 1
+            umi_key = (layer_id, gene_idx, loc_idx, umi)
+            if umi_key in seen_umis:
+                stats["deduplicated_umis"] += 1
+                continue
+            seen_umis.add(umi_key)
+            counts[layer][(loc_idx, gene_idx)] += 1
+            used_loc_indices.add(loc_idx)
+            stats["counted_umis"] += 1
+
+    if not used_loc_indices or not genes:
+        raise SystemExit("Existing expmat.bed did not produce exon/intron UMI counts.")
+
+    used_loc_indices = sorted(used_loc_indices)
+    row_remap = {old_idx: new_idx for new_idx, old_idx in enumerate(used_loc_indices)}
+    used_locs = [ordered_locs[idx] for idx in used_loc_indices]
+
+    spliced = _counts_to_sparse_matrix(counts["spliced"], row_remap, len(used_locs), len(genes), sparse)
+    unspliced = _counts_to_sparse_matrix(counts["unspliced"], row_remap, len(used_locs), len(genes), sparse)
+    obs_names = [loc.replace("_", "x") for loc in used_locs]
+
+    obs = pd.DataFrame(index=obs_names)
+    obs["x"] = [float(loc_to_xy[loc][0]) for loc in used_locs]
+    obs["y"] = [float(loc_to_xy[loc][1]) for loc in used_locs]
+    var = pd.DataFrame(index=pd.Index(genes, dtype=str))
+
+    adata = ad.AnnData(X=spliced, obs=obs, var=var)
+    adata.layers["spliced"] = spliced
+    adata.layers["unspliced"] = unspliced
+    adata.obsm["X_space"] = obs[["x", "y"]].to_numpy(dtype=float)
+
+    spliced_path = output_dir / "spliced_counts.npz"
+    unspliced_path = output_dir / "unspliced_counts.npz"
+    obs_path = output_dir / "sparse_obs_names.tsv"
+    var_path = output_dir / "sparse_var_names.tsv"
+    sparse.save_npz(spliced_path, spliced)
+    sparse.save_npz(unspliced_path, unspliced)
+    pd.Series(obs_names, name="obs_name").to_csv(obs_path, sep="\t", index=False)
+    pd.Series(genes, name="gene").to_csv(var_path, sep="\t", index=False)
+
+    stats["cells"] = len(used_locs)
+    stats["genes"] = len(genes)
+    stats["spliced_nnz"] = int(spliced.nnz)
+    stats["unspliced_nnz"] = int(unspliced.nnz)
+    stats["spliced_counts"] = str(spliced_path)
+    stats["unspliced_counts"] = str(unspliced_path)
+    stats["obs_names"] = str(obs_path)
+    stats["var_names"] = str(var_path)
+    return adata, stats
+
+
+def _counts_to_sparse_matrix(counts, row_remap, n_rows, n_cols, sparse):
+    rows = []
+    cols = []
+    data = []
+    for (old_row, col), value in counts.items():
+        new_row = row_remap.get(old_row)
+        if new_row is None:
+            continue
+        rows.append(new_row)
+        cols.append(col)
+        data.append(value)
+    return sparse.coo_matrix((data, (rows, cols)), shape=(n_rows, n_cols)).tocsr()
+
+
+def _xy_from_loc(loc):
+    parts = loc.split("_", 1)
+    if len(parts) == 2:
+        return parts[0], parts[1]
+    return "0", "0"
+
+
+def _load_read_map(read_map, progress_interval=0):
     read_info = {}
     with read_map.open() as fin:
         for line in fin:
             read_id, loc, barcode, umi = line.rstrip("\n").split("\t", 3)
             read_info[read_id] = (loc, barcode, umi)
+            if progress_interval and len(read_info) % progress_interval == 0:
+                _log_status(f"velocity2: loaded {len(read_info)} read_map records")
     return read_info
 
 
@@ -1083,6 +1575,118 @@ def _write_velocity_plots(adata, args, output_dir, scv, plt):
             _warn(f"Skipping {name}: {exc}")
 
     return outputs
+
+
+def _write_velocity_notebook(output_dir, source, args):
+    notebook_path = output_dir / "rna_velocity_report.ipynb"
+    figures = sorted((output_dir / "figures").glob("*.png"))
+    command_name = getattr(args, "command", "velocity")
+
+    cells = [
+        _markdown_cell(
+            [
+                "# RNA velocity report\n",
+                "\n",
+                f"Generated by `ASTROutils {command_name}`.\n",
+                "\n",
+                f"Source: `{source}`\n",
+            ]
+        ),
+        _code_cell(
+            [
+                "import json\n",
+                "from pathlib import Path\n",
+                "import pandas as pd\n",
+                "import scvelo as scv\n",
+                "\n",
+                "out = Path('.')\n",
+                "adata = scv.read(out / 'rna_velocity.h5ad')\n",
+                "adata\n",
+            ]
+        ),
+        _code_cell(
+            [
+                "with open(out / 'run_summary.json') as fh:\n",
+                "    summary = json.load(fh)\n",
+                "summary\n",
+            ]
+        ),
+        _code_cell(
+            [
+                "obs_path = out / 'velocity_obs.csv'\n",
+                "pd.read_csv(obs_path, index_col=0).head() if obs_path.exists() else adata.obs.head()\n",
+            ]
+        ),
+        _code_cell(
+            [
+                "adata.layers.keys(), adata.obsm.keys()\n",
+            ]
+        ),
+    ]
+
+    if figures:
+        cells.append(_markdown_cell(["## Generated figures\n"]))
+        for figure in figures:
+            rel_path = figure.relative_to(output_dir)
+            cells.append(
+                _markdown_cell(
+                    [
+                        f"### {figure.stem}\n",
+                        "\n",
+                        f"![{figure.stem}]({rel_path.as_posix()})\n",
+                    ]
+                )
+            )
+
+    cells.append(
+        _code_cell(
+            [
+                "# Example: make additional scVelo plots from the saved AnnData object.\n",
+                "# scv.pl.velocity_embedding_stream(adata, basis='umap', color='velocity_pseudotime')\n",
+            ]
+        )
+    )
+
+    notebook = {
+        "cells": cells,
+        "metadata": {
+            "kernelspec": {
+                "display_name": "Python 3",
+                "language": "python",
+                "name": "python3",
+            },
+            "language_info": {
+                "name": "python",
+                "pygments_lexer": "ipython3",
+            },
+        },
+        "nbformat": 4,
+        "nbformat_minor": 5,
+    }
+    notebook_path.write_text(json.dumps(notebook, indent=1) + "\n")
+    return notebook_path
+
+
+def _markdown_cell(source):
+    return {
+        "cell_type": "markdown",
+        "metadata": {},
+        "source": source,
+    }
+
+
+def _code_cell(source):
+    return {
+        "cell_type": "code",
+        "execution_count": None,
+        "metadata": {},
+        "outputs": [],
+        "source": source,
+    }
+
+
+def _log_status(message):
+    print(message, file=sys.stderr, flush=True)
 
 
 def _warn(message):

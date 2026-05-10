@@ -1,6 +1,7 @@
 # ASTRO
+The usage instructions for the ASTRO Python package are as follows. Our code has also been made available on Zenodo (https://zenodo.org/records/17913760; doi: 10.5281/zenodo.17913760).
 
-The usage instructions for the ASTRO Python package are as follows.
+This method has been published in Bioinformatics (https://doi.org/10.1093/bioinformatics/btaf688).
 
 # 1. Functional Overview
 Demultiplexing: Adapter trimming, UMI, and Barcode splitting.  
@@ -28,10 +29,16 @@ cd python
 pip install .
 ```
 
+For RNA velocity utilities, install the optional velocity dependencies:
+```bash
+pip install ".[velocity]"
+```
+
 ## 2.4 Check if the installation was successful:
 If you see the help documentation, the installation is complete:
 ```bash
 ASTRO --help
+ASTROutils --help
 ```
 
 ## Alternative: Docker Installation
@@ -449,9 +456,80 @@ This feature relies on the BAM file (STAR/tempfiltered.bam) and its index (which
 
 **Note**: The gene names (or IDs) in genes2check.txt should match the entries in the ninth column of your GTF file. 
 
-# 8. legecy bash version
+# 8. ASTROutils RNA Velocity
+
+`ASTROutils velocity` runs RNA velocity analysis from an existing 10x/Visium output folder. It uses the existing 10x BAM for ASTRO feature counting and does not remap reads. The 10x folder should contain files such as:
+
+```text
+barcodes.tsv.gz
+features.tsv.gz
+matrix.mtx.gz
+possorted_genome_bam.bam
+tissue_positions_list.csv.gz
+```
+
+The GTF must be an ASTRO modified GTF containing exon/intron feature names such as `__exon` and `__intron`.
+
+Example:
+```bash
+ASTROutils velocity \
+  --10xinput /home/dz287/palmer_scratch/colab/skin/data/10x/P4_1 \
+  --gtf ~/mark/SHARE/data/GRCh38/hsa.mod.gtf \
+  --output velocity_out
+```
+
+This command performs:
+
+```text
+existing 10x BAM
+-> ASTRO feature counting with the modified GTF
+-> exon/intron count matrices
+-> sparse AnnData with spliced/unspliced layers
+-> scVelo analysis
+```
+
+Important output files include:
+
+```text
+velocity_out/rna_velocity.h5ad
+velocity_out/velocity_obs.csv
+velocity_out/run_summary.json
+velocity_out/rna_velocity_report.ipynb
+velocity_out/figures/
+velocity_out/astro_velocity_count/expmat.bed
+```
+
+`ASTROutils velocity2` is used for continuing from an existing velocity output folder.
+
+If `velocity_out/rna_velocity.h5ad` already exists, `velocity2` only writes or refreshes:
+
+```text
+velocity_out/rna_velocity_report.ipynb
+```
+
+It does not read `expmat.bed`, does not read BAM, and does not rerun scVelo in this case.
+
+If `rna_velocity.h5ad` does not exist but `velocity_out/astro_velocity_count/expmat.bed` and `velocity_out/astro_velocity_count/read_map.tsv` already exist, `velocity2` builds sparse spliced/unspliced matrices from those intermediate files and then runs the downstream scVelo analysis.
+
+Example:
+```bash
+ASTROutils velocity2 \
+  --10xinput /home/dz287/palmer_scratch/colab/skin/data/10x/P4_1 \
+  --gtf ~/mark/SHARE/data/GRCh38/hsa.mod.gtf \
+  --output velocity_out
+```
+
+Required external command-line tools for the 10x BAM counting path are:
+
+```text
+samtools
+bedtools
+```
+
+The Python velocity extra installs the Python-side dependencies, including `scvelo`, `scanpy`, `anndata`, `scipy`, `pandas`, `matplotlib`, and `numpy<2`.
+
+# 9. legecy bash version
 For previous users who want to continue using the bash version of ASTRO, we have put the old bash version in *bash* folder. However, the legcay bash version is deprecated and we strongly suggest to move to the python version.
 
-# 9. ASTRO across different technologies
+# 10. ASTRO across different technologies
 Although ASTRO was designed for spatial whole-transcriptome profiling of FFPE samples, it is a flexible pipeline that can be applied across multiple platforms and technologies. We have tried ASTRO on several datasets to demonstrate this compatibility. Scripts summarizing the usage of ASTRO on these datasets are provided in the compatibility/ folder.
-
