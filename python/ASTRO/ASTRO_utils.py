@@ -2,6 +2,7 @@
 import argparse
 import gzip
 import json
+import multiprocessing
 import os
 import re
 import subprocess
@@ -23,12 +24,11 @@ def main(argv=None):
 
     velocity_parser = subparsers.add_parser(
         "velocity",
-        help="Run RNA velocity from a loom file or 10x-style exon/intron matrix.",
+        help="Run or resume RNA velocity analysis.",
     )
     velocity_parser.add_argument(
         "--10xinput",
         dest="tenxinput",
-        required=True,
         help="10x output folder, Cell Ranger outs folder, or matrix directory.",
     )
     velocity_parser.add_argument(
@@ -44,16 +44,37 @@ def main(argv=None):
         "--gtf",
         help=(
             "ASTRO modified GTF used to count exon/intron features from a 10x "
-            "BAM when the 10x matrix does not already contain velocity layers."
+            "or Cell Ranger BAM when the 10x matrix does not already contain "
+            "velocity layers."
         ),
     )
     velocity_parser.add_argument(
         "--bam",
-        help="Optional 10x BAM path. Defaults to possorted_genome_bam.bam under --10xinput.",
+        help=(
+            "Optional 10x/Cell Ranger BAM path. ASTROutils reads barcode and "
+            "UMI tags from this BAM and converts it to ASTRO counting BED "
+            "internally. Defaults to possorted_genome_bam.bam under --10xinput."
+        ),
+    )
+    velocity_parser.add_argument(
+        "--bam-format",
+        choices=["10x", "astro"],
+        default="10x",
+        help=(
+            "Input BAM format. Use 10x for Cell Ranger BAMs with barcode/UMI "
+            "tags. ASTRO BAM input is not converted by this velocity command."
+        ),
     )
     velocity_parser.add_argument(
         "--positions",
         help="Optional Visium tissue positions file. Defaults to tissue_positions*.csv under --10xinput.",
+    )
+    velocity_parser.add_argument(
+        "--barcode-whitelist",
+        help=(
+            "Optional filtered barcode whitelist. Supports one-column barcode "
+            "files or two-column species,barcode CSV files."
+        ),
     )
     velocity_parser.add_argument(
         "--exon-matrix",
@@ -122,12 +143,30 @@ def main(argv=None):
         "--n-jobs",
         type=int,
         default=1,
-        help="Number of jobs for scVelo steps that support parallel execution.",
+        help="Number of jobs for parallel overlap and scVelo steps that support it.",
+    )
+    velocity_parser.add_argument(
+        "--overlap-chunk-lines",
+        type=int,
+        default=2000000,
+        help="Target BED lines per parallel overlap chunk when --n-jobs is greater than 1.",
     )
     velocity_parser.add_argument(
         "--qualityfilter",
         default="25:0.75",
         help="ASTRO-style feature filter, for example 25:0.75 or 0:0.",
+    )
+    velocity_parser.add_argument(
+        "--progress-interval",
+        type=int,
+        default=1000000,
+        help="Print progress every N records while reading large intermediate files.",
+    )
+    velocity_parser.add_argument(
+        "--dedup-buckets",
+        type=int,
+        default=512,
+        help="Number of on-disk hash buckets used for memory-bounded UMI deduplication.",
     )
     velocity_parser.add_argument(
         "--barcode-tag",
@@ -161,124 +200,12 @@ def main(argv=None):
     )
     velocity_parser.set_defaults(func=run_velocity)
 
-    velocity2_parser = subparsers.add_parser(
-        "velocity2",
-        help="Run RNA velocity from an existing ASTRO expmat.bed using sparse matrices.",
-    )
-    velocity2_parser.add_argument(
-        "--10xinput",
-        dest="tenxinput",
-        required=True,
-        help="10x output folder used to load spot positions.",
-    )
-    velocity2_parser.add_argument(
-        "--gtf",
-        help="Accepted for command compatibility; expmat.bed already contains feature assignments.",
-    )
-    velocity2_parser.add_argument(
-        "--output",
-        required=True,
-        help="Output directory that already contains astro_velocity_count/expmat.bed.",
-    )
-    velocity2_parser.add_argument(
-        "--positions",
-        help="Optional Visium tissue positions file. Defaults to tissue_positions*.csv under --10xinput.",
-    )
-    velocity2_parser.add_argument(
-        "--umap",
-        help="Optional CSV/TSV with cell id, UMAP_1, and UMAP_2 columns.",
-    )
-    velocity2_parser.add_argument(
-        "--clusters",
-        help="Optional CSV/TSV with cell id and cluster columns.",
-    )
-    velocity2_parser.add_argument(
-        "--cluster-key",
-        default="clusters",
-        help="obs column name for clusters when --clusters is provided.",
-    )
-    velocity2_parser.add_argument(
-        "--cluster-column",
-        help="Column name in --clusters to use as cluster labels.",
-    )
-    velocity2_parser.add_argument(
-        "--basis",
-        default="umap",
-        help="Embedding basis for velocity plots, for example umap or space.",
-    )
-    velocity2_parser.add_argument(
-        "--color",
-        help="obs column or variable used to color plots.",
-    )
-    velocity2_parser.add_argument(
-        "--mode",
-        default="steady_state",
-        choices=["steady_state", "deterministic", "stochastic", "dynamical"],
-        help="scVelo velocity mode. steady_state is treated as deterministic.",
-    )
-    velocity2_parser.add_argument(
-        "--min-shared-counts",
-        type=int,
-        default=20,
-        help="Minimum shared counts for scv.pp.filter_and_normalize.",
-    )
-    velocity2_parser.add_argument(
-        "--n-top-genes",
-        type=int,
-        help="Optional number of top genes for scv.pp.filter_and_normalize.",
-    )
-    velocity2_parser.add_argument(
-        "--n-pcs",
-        type=int,
-        default=30,
-        help="Number of PCs for scv.pp.moments.",
-    )
-    velocity2_parser.add_argument(
-        "--n-neighbors",
-        type=int,
-        default=30,
-        help="Number of neighbors for scv.pp.moments.",
-    )
-    velocity2_parser.add_argument(
-        "--n-jobs",
-        type=int,
-        default=1,
-        help="Number of jobs for scVelo steps that support parallel execution.",
-    )
-    velocity2_parser.add_argument(
-        "--qualityfilter",
-        default="25:0.75",
-        help="ASTRO-style feature filter, for example 25:0.75 or 0:0.",
-    )
-    velocity2_parser.add_argument(
-        "--progress-interval",
-        type=int,
-        default=1000000,
-        help="Print progress every N records while reading large intermediate files.",
-    )
-    velocity2_parser.add_argument(
-        "--no-plots",
-        action="store_true",
-        help="Skip PNG plot generation.",
-    )
-    velocity2_parser.add_argument(
-        "--no-notebook",
-        action="store_true",
-        help="Skip writing the output inspection notebook.",
-    )
-    velocity2_parser.add_argument(
-        "--no-force-exit",
-        action="store_true",
-        help="Do not force the CLI process to exit after all outputs are written.",
-    )
-    velocity2_parser.set_defaults(func=run_velocity2)
-
     args = parser.parse_args(argv)
     if not hasattr(args, "func"):
         parser.print_help()
         return 1
     args.func(args)
-    if args.command in {"velocity", "velocity2"} and not getattr(args, "no_force_exit", False):
+    if args.command == "velocity" and not getattr(args, "no_force_exit", False):
         sys.stdout.flush()
         sys.stderr.flush()
         os._exit(0)
@@ -286,23 +213,34 @@ def main(argv=None):
 
 
 def run_velocity(args):
-    libs = _load_velocity_libraries()
-    np, pd, sc, scv, ad, sparse, plt = libs
-
-    input_dir = Path(args.tenxinput).expanduser().resolve()
+    input_dir = Path(args.tenxinput).expanduser().resolve() if args.tenxinput else Path(".").resolve()
     output_dir = Path(args.output).expanduser().resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    if _resume_velocity_from_output(args, input_dir, output_dir, required=False):
+        return
+
+    if not args.tenxinput and not (args.bam or args.loom or (args.exon_matrix and args.intron_matrix)):
+        raise SystemExit(
+            "Provide --10xinput, or use --bam with --gtf, --loom, or "
+            "--exon-matrix together with --intron-matrix."
+        )
+
+    libs = _load_velocity_libraries()
     adata, source = _read_velocity_input(args, input_dir, output_dir, libs)
     _run_velocity_analysis(adata, args, source, output_dir, libs)
 
 
-def run_velocity2(args):
-    input_dir = Path(args.tenxinput).expanduser().resolve()
-    output_dir = Path(args.output).expanduser().resolve()
+def _resume_velocity_from_output(args, input_dir, output_dir, required=False):
     h5ad_path = output_dir / "rna_velocity.h5ad"
+    command_name = getattr(args, "command", "velocity")
 
     if h5ad_path.exists():
+        if args.barcode_whitelist:
+            _warn(
+                "Existing rna_velocity.h5ad found; --barcode-whitelist is ignored "
+                "unless the h5ad is removed and the command rebuilds from expmat.bed."
+            )
         source = "existing RNA velocity output"
         summary_path = output_dir / "run_summary.json"
         if summary_path.exists():
@@ -313,40 +251,52 @@ def run_velocity2(args):
                 pass
         notebook_path = _write_velocity_notebook(output_dir, source, args)
         print(f"Wrote RNA velocity report notebook to {notebook_path}")
-        return
+        return True
 
-    _log_status("velocity2: loading scVelo/Scanpy libraries")
-    libs = _load_velocity_libraries()
-    count_dir = output_dir / "astro_velocity_count"
-    expmat_bed = _first_existing_path(count_dir / "expmat.bed", output_dir / "expmat.bed")
-    read_map = _first_existing_path(count_dir / "read_map.tsv", output_dir / "read_map.tsv")
+    expmat_bed = _existing_path_with_gz(output_dir / "expmat.bed")
+    expmat_done = output_dir / "expmat.bed.done"
+    read_map = _existing_path_with_gz(output_dir / "read_map.tsv")
 
+    if expmat_bed is None and read_map is None:
+        if required:
+            raise SystemExit(
+                f"{command_name} requires an existing RNA velocity h5ad or "
+                f"ASTRO feature BED at {output_dir / 'expmat.bed'}"
+            )
+        return False
     if expmat_bed is None:
+        if not required:
+            return False
         raise SystemExit(
-            "velocity2 requires an existing ASTRO feature BED at "
-            f"{count_dir / 'expmat.bed'} or {output_dir / 'expmat.bed'}"
+            f"{command_name} resume requires an existing ASTRO feature BED at "
+            f"{output_dir / 'expmat.bed'}"
         )
+    if not expmat_done.exists():
+        _warn(f"Found {expmat_bed} without {expmat_done.name}; rerunning overlap.")
+        return False
     if read_map is None:
         raise SystemExit(
-            "velocity2 requires the read-to-UMI map from velocity counting at "
-            f"{count_dir / 'read_map.tsv'} or {output_dir / 'read_map.tsv'}"
+            f"{command_name} resume requires the read-to-UMI map from velocity counting at "
+            f"{output_dir / 'read_map.tsv'}"
         )
 
-    _log_status("velocity2: loading spot coordinates")
+    _log_status(f"{command_name}: loading scVelo/Scanpy libraries")
+    libs = _load_velocity_libraries()
+    _log_status(f"{command_name}: loading spot coordinates")
     positions_path = _find_positions_file(args, input_dir)
     if positions_path is not None:
         _barcode_to_xy, ordered_locs, loc_to_xy = _load_10x_spot_coordinates(positions_path, libs)
     else:
-        barcodes_file = count_dir / "astro_barcodes.tsv"
-        if not barcodes_file.exists():
+        barcodes_file = _existing_path_with_gz(output_dir / "astro_barcodes.tsv")
+        if barcodes_file is None:
             raise SystemExit(
-                "velocity2 needs spot coordinates. Provide --positions, put a "
+                f"{command_name} needs spot coordinates. Provide --positions, put a "
                 "10x tissue_positions file under --10xinput, or keep "
-                f"{barcodes_file} from the first velocity run."
-            )
+                f"{output_dir / 'astro_barcodes.tsv'} from the first velocity run."
+        )
         ordered_locs, loc_to_xy = _load_astro_barcode_locations(barcodes_file)
 
-    _log_status(f"velocity2: building sparse AnnData from {expmat_bed}")
+    _log_status(f"{command_name}: building sparse AnnData from {expmat_bed}")
     adata, matrix_stats = _sparse_adata_from_astro_expmat(
         expmat_bed=expmat_bed,
         read_map=read_map,
@@ -357,11 +307,11 @@ def run_velocity2(args):
         libs=libs,
     )
     _log_status(
-        "velocity2: sparse matrix built "
+        f"{command_name}: sparse matrix built "
         f"({matrix_stats['cells']} cells, {matrix_stats['genes']} genes, "
         f"{matrix_stats['counted_umis']} counted UMIs)"
     )
-    _log_status("velocity2: running scVelo analysis")
+    _log_status(f"{command_name}: running scVelo analysis")
     _run_velocity_analysis(
         adata,
         args,
@@ -370,6 +320,22 @@ def run_velocity2(args):
         libs,
         summary_extra={"sparse_matrix": matrix_stats},
     )
+    return True
+
+
+def _existing_path_with_gz(path):
+    if path.exists():
+        return path
+    gz_path = Path(f"{path}.gz")
+    if gz_path.exists():
+        return gz_path
+    return None
+
+
+def _open_text(path, mode="rt"):
+    if str(path).endswith(".gz"):
+        return gzip.open(path, mode)
+    return path.open(mode)
 
 
 def _run_velocity_analysis(adata, args, source, output_dir, libs, summary_extra=None):
@@ -464,23 +430,40 @@ def _load_velocity_libraries():
     except Exception as exc:
         raise SystemExit(
             "ASTROutils velocity requires the velocity extra dependencies. "
-            "Install them with: pip install '.[velocity]'. "
+            "Install them in the same environment with: "
+            "python -m pip install -e './python[velocity]'. "
             f"Dependency import failed with: {exc}"
         ) from exc
     return np, pd, sc, scv, ad, sparse, plt
 
 
-def _first_existing_path(*paths):
-    for path in paths:
-        if path.exists():
-            return path
-    return None
-
-
 def _read_velocity_input(args, input_dir, output_dir, libs):
     np, pd, sc, scv, ad, sparse, _plt = libs
 
-    loom_path = Path(args.loom).expanduser().resolve() if args.loom else _find_loom(input_dir)
+    loom_path = Path(args.loom).expanduser().resolve() if args.loom else None
+    if loom_path is not None:
+        adata = scv.read(str(loom_path), cache=False)
+        _require_velocity_layers(adata, f"loom file {loom_path}")
+        return adata, str(loom_path)
+
+    exon_matrix, intron_matrix = _find_exon_intron_tables(args, input_dir) if (args.exon_matrix or args.intron_matrix) else (None, None)
+    if exon_matrix is not None and intron_matrix is not None:
+        adata = _read_exon_intron_tables(exon_matrix, intron_matrix, libs)
+        return adata, f"{exon_matrix} and {intron_matrix}"
+
+    if args.bam:
+        if not args.gtf:
+            raise SystemExit("--bam input requires --gtf for ASTRO exon/intron feature counting.")
+        if args.bam_format != "10x":
+            raise SystemExit(
+                "ASTROutils velocity --bam currently supports --bam-format 10x "
+                "only. Use --bam-format 10x for Cell Ranger BAMs, or resume "
+                "from existing ASTRO velocity count intermediates with "
+                "ASTROutils velocity."
+            )
+        return _read_10x_bam_with_astro(args, input_dir, output_dir, _find_10x_bam(args, input_dir), libs)
+
+    loom_path = _find_loom(input_dir)
     if loom_path is not None:
         adata = scv.read(str(loom_path), cache=False)
         _require_velocity_layers(adata, f"loom file {loom_path}")
@@ -493,6 +476,11 @@ def _read_velocity_input(args, input_dir, output_dir, libs):
 
     bam_path = _find_10x_bam(args, input_dir)
     if args.gtf and bam_path is not None:
+        if args.bam_format != "10x":
+            raise SystemExit(
+                "The BAM found under --10xinput is handled as a 10x/Cell "
+                "Ranger BAM. Use --bam-format 10x for this path."
+            )
         return _read_10x_bam_with_astro(args, input_dir, output_dir, bam_path, libs)
 
     matrix_dir = _find_10x_matrix_dir(input_dir)
@@ -600,37 +588,60 @@ def _find_10x_bam(args, input_dir):
 def _read_10x_bam_with_astro(args, input_dir, output_dir, bam_path, libs):
     np, pd, _sc, _scv, ad, sparse, _plt = libs
 
+    _log_status(
+        "velocity: treating BAM as 10x/Cell Ranger BAM and converting "
+        "barcode/UMI tags to ASTRO counting BED"
+    )
+    barcode_whitelist = _load_barcode_whitelist(args.barcode_whitelist)
+    if barcode_whitelist is not None:
+        _log_status(f"velocity: loaded {len(barcode_whitelist)} whitelist barcodes")
+
     gtf_path = Path(args.gtf).expanduser().resolve()
     if not gtf_path.exists():
         raise SystemExit(f"GTF file does not exist: {gtf_path}")
 
     positions_path = _find_positions_file(args, input_dir)
-    if positions_path is None:
+    use_barcode_locs = positions_path is None
+    if positions_path is None and not args.bam:
         raise SystemExit(
             "A 10x BAM needs spot coordinates. Provide --positions or put "
             "tissue_positions_list.csv(.gz), tissue_positions.csv(.gz), or "
             "spot_meta.tsv under --10xinput."
         )
-
-    count_dir = output_dir / "astro_velocity_count"
-    count_dir.mkdir(parents=True, exist_ok=True)
+    if positions_path is None:
+        _warn("No spot positions found; treating BAM barcodes as single-cell observations.")
 
     gtf_chroms = _load_gtf_chroms(gtf_path)
-    barcode_to_xy, ordered_locs, loc_to_xy = _load_10x_spot_coordinates(positions_path, libs)
-    barcodes_file = count_dir / "astro_barcodes.tsv"
-    _write_astro_barcodes(barcodes_file, barcode_to_xy)
+    if positions_path is not None:
+        barcode_to_xy, ordered_locs, loc_to_xy = _load_10x_spot_coordinates(positions_path, libs)
+    else:
+        barcode_to_xy, ordered_locs, loc_to_xy = {}, [], {}
+    existing_barcodes_file = _existing_path_with_gz(output_dir / "astro_barcodes.tsv")
+    barcodes_file = existing_barcodes_file or output_dir / "astro_barcodes.tsv"
 
-    astro_bed = count_dir / "10x_astro.bed"
-    gtf_chrom_bed = count_dir / "10x_astro.gtfchrom.bed"
-    read_map = count_dir / "read_map.tsv"
-    reused_intermediate = astro_bed.exists() and read_map.exists()
+    existing_astro_bed = _existing_path_with_gz(output_dir / "10x_astro.bed")
+    existing_read_map = _existing_path_with_gz(output_dir / "read_map.tsv")
+    astro_bed = existing_astro_bed or output_dir / "10x_astro.bed"
+    gtf_chrom_bed = output_dir / "10x_astro.gtfchrom.bed"
+    read_map = existing_read_map or output_dir / "read_map.tsv"
+    reused_intermediate = existing_astro_bed is not None and existing_read_map is not None
+    if reused_intermediate and use_barcode_locs:
+        if existing_barcodes_file is not None:
+            ordered_locs, loc_to_xy = _load_astro_barcode_locations(
+                barcodes_file,
+                use_barcode_as_loc=True,
+            )
+        else:
+            reused_intermediate = False
     if reused_intermediate:
+        _log_status(f"velocity: reusing existing ASTRO BED and read map under {output_dir}")
         stats = {
             "reused_intermediate": True,
             "bed": str(astro_bed),
             "read_map": str(read_map),
         }
     else:
+        _log_status(f"velocity: converting BAM to ASTRO BED at {astro_bed}")
         stats = _write_astro_bed_from_10x_bam(
             bam_path=bam_path,
             output_bed=astro_bed,
@@ -638,12 +649,24 @@ def _read_10x_bam_with_astro(args, input_dir, output_dir, bam_path, libs):
             barcode_to_xy=barcode_to_xy,
             gtf_chroms=gtf_chroms,
             args=args,
+            use_barcode_locs=use_barcode_locs,
+            ordered_locs=ordered_locs,
+            loc_to_xy=loc_to_xy,
+            barcode_whitelist=barcode_whitelist,
+        )
+        _log_status(
+            "velocity: BAM conversion completed "
+            f"({stats['written_reads']} reads, {stats['written_bed_blocks']} BED blocks)"
         )
     if not reused_intermediate and stats["written_reads"] == 0:
         raise SystemExit(
-            "No mapped BAM records could be matched to tissue positions. Check "
-            f"the BAM barcode tag ({args.barcode_tag}) and the positions file."
+            "No mapped BAM records could be used for velocity counting. Check "
+            f"the BAM barcode tag ({args.barcode_tag})"
+            + ("." if use_barcode_locs else " and the positions file.")
         )
+    if existing_barcodes_file is None or not reused_intermediate:
+        barcodes_file = output_dir / "astro_barcodes.tsv"
+        _write_astro_barcodes(barcodes_file, barcode_to_xy)
     overlap_bed, chrom_stats = _prepare_astro_bed_for_gtf(
         astro_bed,
         gtf_chrom_bed,
@@ -651,12 +674,13 @@ def _read_10x_bam_with_astro(args, input_dir, output_dir, bam_path, libs):
     )
     stats["chromosome_fix"] = chrom_stats
 
-    from .countfeature import inter_bed2geneFile
+    expmat_bed = output_dir / "expmat.bed"
+    _log_status(f"velocity: running ASTRO feature overlap into {expmat_bed}")
+    _run_astro_feature_overlap(overlap_bed, expmat_bed, gtf_path, output_dir, args)
+    _log_status("velocity: ASTRO feature overlap completed")
 
-    expmat_bed = count_dir / "expmat.bed"
-    inter_bed2geneFile(str(overlap_bed), str(expmat_bed), str(gtf_path))
-
-    adata, matrix_stats = _adata_from_astro_expmat(
+    _log_status("velocity: building sparse AnnData from ASTRO feature BED")
+    adata, matrix_stats = _sparse_adata_from_astro_expmat(
         expmat_bed=expmat_bed,
         read_map=read_map,
         output_dir=output_dir,
@@ -665,22 +689,134 @@ def _read_10x_bam_with_astro(args, input_dir, output_dir, bam_path, libs):
         args=args,
         libs=libs,
     )
-    adata.uns["astro_velocity_count"] = {
+    adata.uns["astro_velocity"] = {
         "bam": str(bam_path),
+        "bam_format": "10x_cellranger",
         "gtf": str(gtf_path),
         "positions": str(positions_path),
+        "barcode_whitelist": str(Path(args.barcode_whitelist).expanduser()) if args.barcode_whitelist else None,
         "bam_records": stats,
         "matrix": matrix_stats,
     }
 
     if not args.keep_temp and not reused_intermediate:
-        for path in (astro_bed, read_map):
+        for path in (gtf_chrom_bed,):
             try:
                 path.unlink()
             except OSError:
                 pass
 
-    return adata, f"ASTRO count from {bam_path} with {gtf_path}"
+    return adata, f"ASTRO count from 10x/Cell Ranger BAM {bam_path} with {gtf_path}"
+
+
+def _run_astro_feature_overlap(input_bed, expmat_bed, gtf_path, output_dir, args):
+    done_path = expmat_bed.with_suffix(expmat_bed.suffix + ".done")
+    tmp_output = expmat_bed.with_suffix(expmat_bed.suffix + ".tmp")
+    for stale_path in (tmp_output, done_path):
+        try:
+            stale_path.unlink()
+        except OSError:
+            pass
+
+    n_jobs = max(1, int(getattr(args, "n_jobs", 1) or 1))
+    if n_jobs == 1 and not str(input_bed).endswith(".gz"):
+        _run_overlap_chunk_worker((str(input_bed), str(tmp_output), str(gtf_path)))
+        os.replace(tmp_output, expmat_bed)
+        done_path.write_text("ok\n")
+        return
+
+    chunk_lines = max(1, int(getattr(args, "overlap_chunk_lines", 2000000) or 2000000))
+    chunk_paths = _split_bed_for_parallel_overlap(input_bed, output_dir, chunk_lines)
+    if len(chunk_paths) == 1:
+        _log_status("velocity: running ASTRO overlap on one decompressed BED chunk")
+        _run_overlap_chunk_worker((str(chunk_paths[0]), str(tmp_output), str(gtf_path)))
+        os.replace(tmp_output, expmat_bed)
+        done_path.write_text("ok\n")
+        try:
+            chunk_paths[0].unlink()
+        except OSError:
+            pass
+        return
+
+    _log_status(
+        "velocity: running parallel ASTRO overlap "
+        f"({len(chunk_paths)} chunks, {n_jobs} jobs)"
+    )
+    chunk_outputs = [
+        output_dir / f".astro_overlap_chunk_{index:05d}.expmat.bed"
+        for index in range(len(chunk_paths))
+    ]
+    tasks = [
+        (str(chunk_path), str(chunk_output), str(gtf_path))
+        for chunk_path, chunk_output in zip(chunk_paths, chunk_outputs)
+    ]
+    with multiprocessing.Pool(processes=n_jobs) as pool:
+        pool.map(_run_overlap_chunk_worker, tasks)
+
+    with tmp_output.open("w") as fout:
+        for chunk_output in chunk_outputs:
+            with chunk_output.open() as fin:
+                for line in fin:
+                    fout.write(line)
+
+    os.replace(tmp_output, expmat_bed)
+    done_path.write_text("ok\n")
+    for path in chunk_paths + chunk_outputs:
+        try:
+            path.unlink()
+        except OSError:
+            pass
+
+
+def _split_bed_for_parallel_overlap(input_bed, output_dir, chunk_lines):
+    for stale_path in output_dir.glob(".astro_overlap_chunk_*.bed"):
+        try:
+            stale_path.unlink()
+        except OSError:
+            pass
+
+    chunk_paths = []
+    chunk_handle = None
+    chunk_index = -1
+    lines_in_chunk = 0
+    previous_read_name = None
+
+    def open_next_chunk():
+        nonlocal chunk_handle, chunk_index, lines_in_chunk
+        if chunk_handle is not None:
+            chunk_handle.close()
+        chunk_index += 1
+        chunk_path = output_dir / f".astro_overlap_chunk_{chunk_index:05d}.bed"
+        chunk_paths.append(chunk_path)
+        chunk_handle = chunk_path.open("w")
+        lines_in_chunk = 0
+
+    with _open_text(input_bed) as fin:
+        for line in fin:
+            fields = line.split("\t", 4)
+            read_name = fields[3] if len(fields) > 3 else ""
+            if chunk_handle is None:
+                open_next_chunk()
+            elif lines_in_chunk >= chunk_lines and read_name != previous_read_name:
+                open_next_chunk()
+            chunk_handle.write(line)
+            lines_in_chunk += 1
+            previous_read_name = read_name
+
+    if chunk_handle is not None:
+        chunk_handle.close()
+    if not chunk_paths:
+        raise SystemExit(f"No BED records were found in {input_bed}")
+    _log_status(f"velocity: split ASTRO BED into {len(chunk_paths)} overlap chunks")
+    return chunk_paths
+
+
+def _run_overlap_chunk_worker(task):
+    input_bed, output_bed, gtf_path = task
+    from .countfeature import inter_bed2geneFile
+
+    inter_bed2geneFile(input_bed, output_bed, gtf_path)
+    return output_bed
 
 
 def _find_positions_file(args, input_dir):
@@ -705,6 +841,41 @@ def _find_positions_file(args, input_dir):
         if candidate.exists():
             return candidate
     return None
+
+
+def _load_barcode_whitelist(whitelist_path):
+    if not whitelist_path:
+        return None
+
+    path = Path(whitelist_path).expanduser().resolve()
+    if not path.exists():
+        raise SystemExit(f"Barcode whitelist file does not exist: {path}")
+
+    whitelist = set()
+    opener = gzip.open if str(path).endswith(".gz") else open
+    with opener(path, "rt") as fin:
+        for line in fin:
+            line = line.strip()
+            if not line:
+                continue
+            if "," in line:
+                barcode = line.split(",")[-1].strip()
+            else:
+                barcode = line.split()[-1].strip()
+            if barcode.lower() in {"barcode", "barcodes"}:
+                continue
+            whitelist.add(barcode)
+
+    if not whitelist:
+        raise SystemExit(f"No barcodes were loaded from whitelist: {path}")
+    return whitelist
+
+
+def _barcode_in_whitelist(barcode, whitelist):
+    if barcode in whitelist:
+        return True
+    stripped = barcode.split("-", 1)[0]
+    return stripped in whitelist or f"{stripped}-1" in whitelist
 
 
 def _load_10x_spot_coordinates(positions_path, libs):
@@ -765,16 +936,16 @@ def _write_astro_barcodes(barcodes_file, barcode_to_xy):
             fout.write(f"{barcode}\t{x}\t{y}\n")
 
 
-def _load_astro_barcode_locations(barcodes_file):
+def _load_astro_barcode_locations(barcodes_file, use_barcode_as_loc=False):
     ordered_locs = []
     loc_to_xy = {}
-    with barcodes_file.open() as fin:
+    with _open_text(barcodes_file) as fin:
         for line in fin:
             parts = line.rstrip("\n").split("\t")
             if len(parts) < 3:
                 continue
-            x, y = parts[1], parts[2]
-            loc = f"{x}_{y}"
+            barcode, x, y = parts[0], parts[1], parts[2]
+            loc = barcode if use_barcode_as_loc else f"{x}_{y}"
             if loc not in loc_to_xy:
                 ordered_locs.append(loc)
                 loc_to_xy[loc] = (x, y)
@@ -828,7 +999,7 @@ def _prepare_astro_bed_for_gtf(input_bed, output_bed, gtf_chroms):
         "skipped_chrom_not_in_gtf": 0,
     }
     needs_output = False
-    with input_bed.open() as fin:
+    with _open_text(input_bed) as fin:
         for line in fin:
             if not line.strip():
                 continue
@@ -843,7 +1014,7 @@ def _prepare_astro_bed_for_gtf(input_bed, output_bed, gtf_chroms):
     if not needs_output:
         return input_bed, stats
 
-    with input_bed.open() as fin, output_bed.open("w") as fout:
+    with _open_text(input_bed) as fin, output_bed.open("w") as fout:
         for line in fin:
             if not line.strip():
                 continue
@@ -867,12 +1038,24 @@ def _prepare_astro_bed_for_gtf(input_bed, output_bed, gtf_chroms):
     return output_bed, stats
 
 
-def _write_astro_bed_from_10x_bam(bam_path, output_bed, read_map, barcode_to_xy, gtf_chroms, args):
+def _write_astro_bed_from_10x_bam(
+    bam_path,
+    output_bed,
+    read_map,
+    barcode_to_xy,
+    gtf_chroms,
+    args,
+    use_barcode_locs=False,
+    ordered_locs=None,
+    loc_to_xy=None,
+    barcode_whitelist=None,
+):
     stats = {
         "sam_records": 0,
         "written_reads": 0,
         "written_bed_blocks": 0,
         "missing_barcode": 0,
+        "barcode_not_in_whitelist": 0,
         "barcode_not_in_positions": 0,
         "missing_umi": 0,
         "missing_blocks": 0,
@@ -891,14 +1074,25 @@ def _write_astro_bed_from_10x_bam(bam_path, output_bed, read_map, barcode_to_xy,
                 continue
 
             tags = _parse_sam_tags(fields[11:])
-            barcode = tags.get(args.barcode_tag) or tags.get("CB") or tags.get("CR")
-            if not barcode:
+            raw_barcode = tags.get(args.barcode_tag) or tags.get("CB") or tags.get("CR")
+            if not raw_barcode:
                 stats["missing_barcode"] += 1
                 continue
-            barcode = _normalize_barcode(barcode, barcode_to_xy)
-            if barcode is None:
-                stats["barcode_not_in_positions"] += 1
+            if barcode_whitelist is not None and not _barcode_in_whitelist(raw_barcode, barcode_whitelist):
+                stats["barcode_not_in_whitelist"] += 1
                 continue
+            barcode = _normalize_barcode(raw_barcode, barcode_to_xy)
+            if barcode is None:
+                if not use_barcode_locs:
+                    stats["barcode_not_in_positions"] += 1
+                    continue
+                barcode = raw_barcode
+                cell_number = len(barcode_to_xy) + 1
+                barcode_to_xy[barcode] = (str(cell_number), "0")
+                if ordered_locs is not None:
+                    ordered_locs.append(barcode)
+                if loc_to_xy is not None:
+                    loc_to_xy[barcode] = barcode_to_xy[barcode]
 
             umi = tags.get(args.umi_tag) or tags.get("UB") or tags.get("UR")
             if not umi:
@@ -921,7 +1115,7 @@ def _write_astro_bed_from_10x_bam(bam_path, output_bed, read_map, barcode_to_xy,
 
             read_id += 1
             x, y = barcode_to_xy[barcode]
-            loc = f"{x}_{y}"
+            loc = barcode if use_barcode_locs else f"{x}_{y}"
             flag = int(fields[1])
             strand = "-" if flag & 16 else "+"
             score = tags.get("AS", ".")
@@ -998,102 +1192,12 @@ def _read_length(sequence, cigar):
     return length or "."
 
 
-def _adata_from_astro_expmat(expmat_bed, read_map, output_dir, ordered_locs, loc_to_xy, args, libs):
-    np, pd, _sc, _scv, ad, sparse, _plt = libs
-    read_info = _load_read_map(read_map)
-    filter_settings = _parse_qualityfilter(args.qualityfilter)
-
-    counts = {
-        "spliced": defaultdict(int),
-        "unspliced": defaultdict(int),
-    }
-    seen_umis = set()
-    stats = {
-        "feature_lines": 0,
-        "counted_umis": 0,
-        "missing_read_map": 0,
-        "missing_velocity_suffix": 0,
-        "quality_filtered": 0,
-    }
-
-    with expmat_bed.open() as fin:
-        for line in fin:
-            line = line.strip()
-            if not line:
-                continue
-            stats["feature_lines"] += 1
-            parsed = _parse_astro_feature_line(line, filter_settings)
-            if parsed is None:
-                stats["quality_filtered"] += 1
-                continue
-            read_id, gene_feature = parsed
-            if read_id not in read_info:
-                stats["missing_read_map"] += 1
-                continue
-
-            gene_name, layer = _split_astro_velocity_feature(gene_feature)
-            if layer is None:
-                stats["missing_velocity_suffix"] += 1
-                continue
-
-            loc, barcode, umi = read_info[read_id]
-            umi_key = (layer, gene_name, loc, barcode, umi)
-            if umi_key in seen_umis:
-                continue
-            seen_umis.add(umi_key)
-            counts[layer][(loc, gene_name)] += 1
-            stats["counted_umis"] += 1
-
-    genes = sorted(
-        {gene for _loc, gene in counts["spliced"]}
-        | {gene for _loc, gene in counts["unspliced"]}
-    )
-    used_locs = [
-        loc
-        for loc in ordered_locs
-        if any((loc, gene) in counts["spliced"] or (loc, gene) in counts["unspliced"] for gene in genes)
-    ]
-    if not used_locs or not genes:
-        raise SystemExit("ASTRO overlap completed, but no exon/intron UMI counts were produced.")
-
-    obs_names = [loc.replace("_", "x") for loc in used_locs]
-    exon = pd.DataFrame(0, index=obs_names, columns=genes, dtype=int)
-    intron = pd.DataFrame(0, index=obs_names, columns=genes, dtype=int)
-    loc_to_obs = dict(zip(used_locs, obs_names))
-    for (loc, gene), value in counts["spliced"].items():
-        if loc in loc_to_obs:
-            exon.at[loc_to_obs[loc], gene] = value
-    for (loc, gene), value in counts["unspliced"].items():
-        if loc in loc_to_obs:
-            intron.at[loc_to_obs[loc], gene] = value
-
-    exon_path = output_dir / "fixed_exon.tsv"
-    intron_path = output_dir / "fixed_intron.tsv"
-    exon.to_csv(exon_path, sep="\t")
-    intron.to_csv(intron_path, sep="\t")
-
-    spliced = sparse.csr_matrix(exon.to_numpy())
-    unspliced = sparse.csr_matrix(intron.to_numpy())
-    adata = ad.AnnData(X=spliced)
-    adata.obs_names = exon.index.astype(str)
-    adata.var_names = exon.columns.astype(str)
-    adata.layers["spliced"] = spliced
-    adata.layers["unspliced"] = unspliced
-    adata.obsm["X_space"] = np.asarray(
-        [[float(loc_to_xy[loc][0]), float(loc_to_xy[loc][1])] for loc in used_locs],
-        dtype=float,
-    )
-    stats["cells"] = len(used_locs)
-    stats["genes"] = len(genes)
-    stats["fixed_exon"] = str(exon_path)
-    stats["fixed_intron"] = str(intron_path)
-    return adata, stats
-
-
 def _sparse_adata_from_astro_expmat(expmat_bed, read_map, output_dir, ordered_locs, loc_to_xy, args, libs):
     np, pd, _sc, _scv, ad, sparse, _plt = libs
-    read_info = _load_read_map(read_map, getattr(args, "progress_interval", 0))
-    _log_status(f"velocity2: loaded {len(read_info)} read-to-UMI records")
+    command_name = getattr(args, "command", "velocity")
+    barcode_whitelist = _load_barcode_whitelist(getattr(args, "barcode_whitelist", None))
+    if barcode_whitelist is not None:
+        _log_status(f"{command_name}: loaded {len(barcode_whitelist)} whitelist barcodes")
     filter_settings = _parse_qualityfilter(args.qualityfilter)
 
     loc_to_index = {loc: idx for idx, loc in enumerate(ordered_locs)}
@@ -1103,69 +1207,169 @@ def _sparse_adata_from_astro_expmat(expmat_bed, read_map, output_dir, ordered_lo
         "spliced": defaultdict(int),
         "unspliced": defaultdict(int),
     }
-    seen_umis = set()
     used_loc_indices = set()
     stats = {
         "feature_lines": 0,
+        "candidate_umis": 0,
         "counted_umis": 0,
         "deduplicated_umis": 0,
         "missing_read_map": 0,
+        "read_map_records_scanned": 0,
         "missing_velocity_suffix": 0,
         "quality_filtered": 0,
     }
+    bucket_count = max(1, int(getattr(args, "dedup_buckets", 512) or 512))
+    bucket_dir = output_dir / ".velocity_umi_buckets"
+    bucket_dir.mkdir(exist_ok=True)
+    for stale_path in bucket_dir.glob("bucket_*.tsv"):
+        try:
+            stale_path.unlink()
+        except OSError:
+            pass
+    bucket_paths = [bucket_dir / f"bucket_{idx:04d}.tsv" for idx in range(bucket_count)]
 
-    with expmat_bed.open() as fin:
-        for line in fin:
-            line = line.strip()
-            if not line:
-                continue
-            stats["feature_lines"] += 1
-            if args.progress_interval and stats["feature_lines"] % args.progress_interval == 0:
+    read_map_fh = _open_text(read_map)
+    current_read_id = None
+    current_read_record = None
+
+    def advance_read_map(target_read_id):
+        nonlocal current_read_id, current_read_record
+        target = int(target_read_id)
+        while current_read_id is None or current_read_id < target:
+            map_line = read_map_fh.readline()
+            if not map_line:
+                current_read_id = None
+                current_read_record = None
+                return None
+            stats["read_map_records_scanned"] += 1
+            if args.progress_interval and stats["read_map_records_scanned"] % args.progress_interval == 0:
                 _log_status(
-                    "velocity2: parsed "
-                    f"{stats['feature_lines']} expmat.bed lines, "
-                    f"{stats['counted_umis']} counted UMIs"
+                    f"{command_name}: scanned "
+                    f"{stats['read_map_records_scanned']} read_map records, "
+                    f"{stats['candidate_umis']} candidate UMIs"
                 )
-            parsed = _parse_astro_feature_line(line, filter_settings)
-            if parsed is None:
-                stats["quality_filtered"] += 1
-                continue
-            read_id, gene_feature = parsed
-            read_record = read_info.get(read_id)
-            if read_record is None:
-                stats["missing_read_map"] += 1
-                continue
+            read_id_text, loc, barcode, umi = map_line.rstrip("\n").split("\t", 3)
+            current_read_id = int(read_id_text)
+            if barcode_whitelist is not None and not _barcode_in_whitelist(barcode, barcode_whitelist):
+                current_read_record = None
+            else:
+                current_read_record = (loc, barcode, umi)
+        if current_read_id == target:
+            return current_read_record
+        return None
 
-            gene_name, layer = _split_astro_velocity_feature(gene_feature)
-            if layer is None:
-                stats["missing_velocity_suffix"] += 1
-                continue
+    bucket_handles = []
+    try:
+        try:
+            bucket_handles = [path.open("w", buffering=1024 * 1024) for path in bucket_paths]
+        except OSError as exc:
+            raise SystemExit(
+                f"Could not open {bucket_count} UMI dedup bucket files. "
+                "Use a smaller --dedup-buckets value."
+            ) from exc
 
-            loc, _barcode, umi = read_record
-            loc_idx = loc_to_index.get(loc)
-            if loc_idx is None:
-                loc_idx = len(ordered_locs)
-                loc_to_index[loc] = loc_idx
-                ordered_locs.append(loc)
-                loc_to_xy[loc] = _xy_from_loc(loc)
+        with read_map_fh, _open_text(expmat_bed) as fin:
+            for line in fin:
+                line = line.strip()
+                if not line:
+                    continue
+                stats["feature_lines"] += 1
+                if args.progress_interval and stats["feature_lines"] % args.progress_interval == 0:
+                    _log_status(
+                        f"{command_name}: parsed "
+                        f"{stats['feature_lines']} expmat.bed lines, "
+                        f"{stats['candidate_umis']} candidate UMIs"
+                    )
+                parsed = _parse_astro_feature_line(line, filter_settings)
+                if parsed is None:
+                    stats["quality_filtered"] += 1
+                    continue
+                read_id, gene_feature = parsed
+                try:
+                    read_record = advance_read_map(read_id)
+                except ValueError:
+                    stats["missing_read_map"] += 1
+                    continue
+                if read_record is None:
+                    stats["missing_read_map"] += 1
+                    continue
 
-            gene_idx = gene_to_index.get(gene_name)
-            if gene_idx is None:
-                gene_idx = len(genes)
-                gene_to_index[gene_name] = gene_idx
-                genes.append(gene_name)
+                gene_name, layer = _split_astro_velocity_feature(gene_feature)
+                if layer is None:
+                    stats["missing_velocity_suffix"] += 1
+                    continue
 
-            layer_id = 0 if layer == "spliced" else 1
-            umi_key = (layer_id, gene_idx, loc_idx, umi)
-            if umi_key in seen_umis:
-                stats["deduplicated_umis"] += 1
-                continue
-            seen_umis.add(umi_key)
-            counts[layer][(loc_idx, gene_idx)] += 1
-            used_loc_indices.add(loc_idx)
-            stats["counted_umis"] += 1
+                loc, _barcode, umi = read_record
+                loc_idx = loc_to_index.get(loc)
+                if loc_idx is None:
+                    loc_idx = len(ordered_locs)
+                    loc_to_index[loc] = loc_idx
+                    ordered_locs.append(loc)
+                    loc_to_xy[loc] = _xy_from_loc(loc)
 
-    if not used_loc_indices or not genes:
+                gene_idx = gene_to_index.get(gene_name)
+                if gene_idx is None:
+                    gene_idx = len(genes)
+                    gene_to_index[gene_name] = gene_idx
+                    genes.append(gene_name)
+
+                layer_id = 0 if layer == "spliced" else 1
+                bucket_index = hash((layer_id, loc_idx, gene_idx, umi)) % bucket_count
+                bucket_handles[bucket_index].write(f"{layer_id}\t{loc_idx}\t{gene_idx}\t{umi}\n")
+                stats["candidate_umis"] += 1
+    finally:
+        for handle in bucket_handles:
+            try:
+                handle.close()
+            except OSError:
+                pass
+
+    if stats["candidate_umis"] == 0 or not genes:
+        raise SystemExit("Existing expmat.bed did not produce exon/intron UMI counts.")
+
+    _log_status(
+        f"{command_name}: aggregating UMI hash buckets "
+        f"({bucket_count} buckets, {stats['candidate_umis']} candidate UMIs)"
+    )
+    bucket_log_interval = max(1, bucket_count // 10)
+    for bucket_index, bucket_path in enumerate(bucket_paths):
+        if args.progress_interval and bucket_index % bucket_log_interval == 0:
+            _log_status(
+                f"{command_name}: aggregating UMI bucket "
+                f"{bucket_index + 1}/{bucket_count}"
+            )
+        if not bucket_path.exists() or bucket_path.stat().st_size == 0:
+            continue
+        seen_bucket = set()
+        with bucket_path.open() as bucket_in:
+            for line in bucket_in:
+                key = line.rstrip("\n")
+                if key in seen_bucket:
+                    continue
+                seen_bucket.add(key)
+                fields = key.split("\t", 3)
+                if len(fields) != 4:
+                    continue
+                layer_id_text, loc_idx_text, gene_idx_text, _umi = fields
+                try:
+                    layer_id = int(layer_id_text)
+                    loc_idx = int(loc_idx_text)
+                    gene_idx = int(gene_idx_text)
+                except ValueError:
+                    continue
+                layer = "spliced" if layer_id == 0 else "unspliced"
+                counts[layer][(loc_idx, gene_idx)] += 1
+                used_loc_indices.add(loc_idx)
+                stats["counted_umis"] += 1
+                if args.progress_interval and stats["counted_umis"] % args.progress_interval == 0:
+                    _log_status(
+                        f"{command_name}: aggregated "
+                        f"{stats['counted_umis']} unique UMIs"
+                    )
+
+    stats["deduplicated_umis"] = stats["candidate_umis"] - stats["counted_umis"]
+
+    if not used_loc_indices:
         raise SystemExit("Existing expmat.bed did not produce exon/intron UMI counts.")
 
     used_loc_indices = sorted(used_loc_indices)
@@ -1203,6 +1407,20 @@ def _sparse_adata_from_astro_expmat(expmat_bed, read_map, output_dir, ordered_lo
     stats["unspliced_counts"] = str(unspliced_path)
     stats["obs_names"] = str(obs_path)
     stats["var_names"] = str(var_path)
+    stats["umi_deduplication"] = "hash_buckets"
+    stats["umi_dedup_buckets"] = bucket_count
+    if getattr(args, "keep_temp", False):
+        stats["umi_bucket_dir"] = str(bucket_dir)
+    else:
+        for path in bucket_paths:
+            try:
+                path.unlink()
+            except OSError:
+                pass
+        try:
+            bucket_dir.rmdir()
+        except OSError:
+            pass
     return adata, stats
 
 
@@ -1225,17 +1443,6 @@ def _xy_from_loc(loc):
     if len(parts) == 2:
         return parts[0], parts[1]
     return "0", "0"
-
-
-def _load_read_map(read_map, progress_interval=0):
-    read_info = {}
-    with read_map.open() as fin:
-        for line in fin:
-            read_id, loc, barcode, umi = line.rstrip("\n").split("\t", 3)
-            read_info[read_id] = (loc, barcode, umi)
-            if progress_interval and len(read_info) % progress_interval == 0:
-                _log_status(f"velocity2: loaded {len(read_info)} read_map records")
-    return read_info
 
 
 def _parse_qualityfilter(filter_str):

@@ -478,6 +478,38 @@ ASTROutils velocity \
   --output velocity_out
 ```
 
+Single-cell 10x/Cell Ranger BAM input can also be used directly when the BAM
+already contains cell barcode and UMI tags. This is not expected to be an
+ASTRO-formatted BAM. ASTROutils reads the 10x barcode/UMI tags, converts the BAM
+records to ASTRO counting BED internally, and then uses ASTRO feature counting.
+In this mode, ASTROutils treats BAM barcodes as cell IDs and does not require a
+10x output folder or spatial positions.
+
+Example:
+```bash
+ASTROutils velocity \
+  --bam /path/to/pos_sorted_sample.bam \
+  --bam-format 10x \
+  --barcode-whitelist /path/to/sample_filtered_barcodes.csv \
+  --gtf ~/mark/SHARE/data/GRCh38/hsa.mod.gtf \
+  --n-jobs 8 \
+  --output velocity_out
+```
+
+By default, the barcode tag is `CB` and the UMI tag is `UB`. Use
+`--barcode-tag` and `--umi-tag` if the BAM uses different tags. Use
+`--bam-format 10x` for Cell Ranger BAMs. `--bam-format astro` is reserved so
+ASTRO-formatted BAM input is not accidentally parsed as a 10x BAM.
+`--barcode-whitelist` can be a one-column barcode file or a two-column
+`species,barcode` CSV such as Cell Ranger multi filtered barcode files.
+`--n-jobs` is used for parallel ASTRO overlap and scVelo steps. When
+`--n-jobs` is greater than 1, ASTROutils splits `10x_astro.bed` on read
+boundaries, runs overlap chunks in parallel, and merges them into `expmat.bed`.
+Sparse matrix construction deduplicates UMI keys with on-disk hash buckets
+instead of keeping all UMI keys in memory. Use `--dedup-buckets` to control
+the memory/speed tradeoff during this step. More buckets use less memory per
+bucket but open more temporary files.
+
 This command performs:
 
 ```text
@@ -496,12 +528,25 @@ velocity_out/velocity_obs.csv
 velocity_out/run_summary.json
 velocity_out/rna_velocity_report.ipynb
 velocity_out/figures/
-velocity_out/astro_velocity_count/expmat.bed
+velocity_out/10x_astro.bed
+velocity_out/read_map.tsv
+velocity_out/expmat.bed
+velocity_out/expmat.bed.done
 ```
 
-`ASTROutils velocity2` is used for continuing from an existing velocity output folder.
+Existing intermediate files can also be gzipped. `ASTROutils velocity` will
+read these files if the plain text versions are absent:
 
-If `velocity_out/rna_velocity.h5ad` already exists, `velocity2` only writes or refreshes:
+```text
+velocity_out/10x_astro.bed.gz
+velocity_out/read_map.tsv.gz
+velocity_out/astro_barcodes.tsv.gz
+velocity_out/expmat.bed.gz
+```
+
+`ASTROutils velocity` also resumes from an existing velocity output folder.
+
+If `velocity_out/rna_velocity.h5ad` already exists, `velocity` only writes or refreshes:
 
 ```text
 velocity_out/rna_velocity_report.ipynb
@@ -509,11 +554,11 @@ velocity_out/rna_velocity_report.ipynb
 
 It does not read `expmat.bed`, does not read BAM, and does not rerun scVelo in this case.
 
-If `rna_velocity.h5ad` does not exist but `velocity_out/astro_velocity_count/expmat.bed` and `velocity_out/astro_velocity_count/read_map.tsv` already exist, `velocity2` builds sparse spliced/unspliced matrices from those intermediate files and then runs the downstream scVelo analysis.
+If `rna_velocity.h5ad` does not exist but `velocity_out/expmat.bed` and `velocity_out/read_map.tsv` already exist, `velocity` builds sparse spliced/unspliced matrices from those intermediate files and then runs the downstream scVelo analysis.
 
 Example:
 ```bash
-ASTROutils velocity2 \
+ASTROutils velocity \
   --10xinput /home/dz287/palmer_scratch/colab/skin/data/10x/P4_1 \
   --gtf ~/mark/SHARE/data/GRCh38/hsa.mod.gtf \
   --output velocity_out
